@@ -12,8 +12,12 @@ mod ui;
 
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
+        // A native macOS window without a title bar: the traffic lights sit in the sidebar.
         viewport: egui::ViewportBuilder::default()
             .with_title("Tattile")
+            .with_fullsize_content_view(true)
+            .with_titlebar_shown(false)
+            .with_title_shown(false)
             .with_inner_size([1360.0, 880.0])
             .with_min_inner_size([1040.0, 660.0]),
         ..Default::default()

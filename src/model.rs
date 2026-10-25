@@ -32,17 +32,6 @@ impl DocType {
         }
     }
 
-    pub fn icon(self) -> &'static str {
-        match self {
-            DocType::Strategy => "🧭",
-            DocType::TechMemo => "📐",
-            DocType::Promo => "🏆",
-            DocType::Story => "📖",
-            DocType::Update => "📣",
-            DocType::Free => "✏",
-        }
-    }
-
     /// What good writing looks like for this type. The AI coach gets this text.
     pub fn rubric(self) -> &'static str {
         match self {

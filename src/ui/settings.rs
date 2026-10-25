@@ -1,6 +1,6 @@
-use egui::{ComboBox, Frame, Margin, RichText, ScrollArea, Slider, TextEdit, Ui};
+use egui::{ComboBox, RichText, Slider, TextEdit, Ui};
 
-use super::widgets::{card, chip, page_title, pal, primary_button, section};
+use super::widgets::{button, card, chip, page, page_title, pal, primary_button, section};
 use crate::app::{TattileApp, ToastKind};
 use crate::model::{Provider, ThemeChoice};
 use crate::secrets::{self, KeySource};
@@ -10,18 +10,15 @@ use crate::theme;
 impl TattileApp {
     pub fn settings_view(&mut self, ui: &mut Ui) {
         let before = self.data.settings.clone();
-        ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-            Frame::new().inner_margin(Margin::symmetric(36, 30)).show(ui, |ui| {
-                ui.set_max_width(820.0);
-                page_title(ui, "Settings", "Connect Claude and Grok, and make the app look the way you like.");
-                for provider in Provider::ALL {
-                    self.provider_card(ui, provider);
-                    ui.add_space(12.0);
-                }
-                self.appearance_card(ui);
-                ui.add_space(12.0);
-                self.data_card(ui);
-            });
+        page(ui, "settings_page", |ui| {
+            page_title(ui, "Settings", "Connect Claude and Grok, and choose how the app looks.");
+            for provider in Provider::ALL {
+                self.provider_card(ui, provider);
+                ui.add_space(10.0);
+            }
+            self.appearance_card(ui);
+            ui.add_space(10.0);
+            self.data_card(ui);
         });
         if self.data.settings.theme != before.theme {
             theme::apply_choice(ui.ctx(), self.data.settings.theme);
@@ -33,17 +30,14 @@ impl TattileApp {
 
     fn provider_card(&mut self, ui: &mut Ui, provider: Provider) {
         let p = pal(ui);
-        let mut save = false;
-        let mut remove = false;
-        let mut load = false;
+        let (mut save, mut remove, mut load) = (false, false, false);
         card(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(RichText::new(provider.label()).font(theme::heading(20.0)).color(p.provider(provider)));
-                let ks = &self.keys[&provider];
-                match ks.source {
-                    KeySource::Keychain => chip(ui, "● Key saved in Keychain", p.success),
-                    KeySource::Env => chip(ui, format!("● Key from ${}", secrets::env_var(provider)), p.info),
-                    KeySource::Missing => chip(ui, "○ No API key", p.warning),
+                ui.label(RichText::new(provider.label()).font(theme::heading(20.0)).color(p.text));
+                match self.keys[&provider].source {
+                    KeySource::Keychain => chip(ui, "Key saved in Keychain", p.success),
+                    KeySource::Env => chip(ui, format!("Key from ${}", secrets::env_var(provider)), p.info),
+                    KeySource::Missing => chip(ui, "No API key", p.warning),
                 };
             });
             let (about, url) = match provider {
@@ -55,21 +49,29 @@ impl TattileApp {
             };
             ui.label(RichText::new(about).color(p.weak));
             ui.hyperlink_to("Get an API key ↗", url);
-            ui.add_space(6.0);
 
             section(ui, "API key");
             ui.horizontal(|ui| {
                 let ks = self.keys.get_mut(&provider).expect("every provider has a key state");
-                let hint = if ks.value.is_empty() { "Paste your API key" } else { "Paste a new key to replace it" };
-                ui.add(TextEdit::singleline(&mut ks.input).password(true).hint_text(hint).desired_width(320.0));
+                let hint = if ks.source == KeySource::Missing {
+                    "Paste your API key"
+                } else {
+                    "Paste a new key to replace it"
+                };
+                ui.add(
+                    TextEdit::singleline(&mut ks.input)
+                        .password(true)
+                        .hint_text(RichText::new(hint).color(p.faint))
+                        .desired_width(300.0)
+                        .min_size(egui::vec2(0.0, 30.0)),
+                );
                 if primary_button(ui, "Save to Keychain").clicked() {
                     save = true;
                 }
-                if ks.source == KeySource::Keychain && ui.button("Remove").clicked() {
+                if ks.source == KeySource::Keychain && button(ui, "Remove").clicked() {
                     remove = true;
                 }
             });
-            ui.add_space(6.0);
 
             section(ui, "Model");
             ui.horizontal(|ui| {
@@ -77,9 +79,9 @@ impl TattileApp {
                     Provider::Claude => &mut self.data.settings.claude_model,
                     Provider::Grok => &mut self.data.settings.grok_model,
                 };
-                ui.add(TextEdit::singleline(model).desired_width(220.0));
+                ui.add(TextEdit::singleline(model).desired_width(200.0).min_size(egui::vec2(0.0, 30.0)));
                 if let Some(list) = self.models.get(&provider) {
-                    ComboBox::from_id_salt(("models", provider)).selected_text("Pick…").width(200.0).show_ui(
+                    ComboBox::from_id_salt(("models", provider)).selected_text("Pick a model").width(180.0).show_ui(
                         ui,
                         |ui| {
                             for id in list {
@@ -90,21 +92,19 @@ impl TattileApp {
                 }
                 if self.loading_models.contains(&provider) {
                     ui.spinner();
-                } else if ui
-                    .button("Test & load models")
+                } else if button(ui, "Test and load models")
                     .on_hover_text("Checks the key and lists the models you can use")
                     .clicked()
                 {
                     load = true;
                 }
-                if ui.small_button("Reset").on_hover_text(provider.default_model()).clicked() {
+                if button(ui, "Reset").on_hover_text(provider.default_model()).clicked() {
                     *model = provider.default_model().to_owned();
                 }
             });
 
             if provider == Provider::Claude {
-                ui.add_space(6.0);
-                section(ui, "Review depth (effort)");
+                section(ui, "Review depth");
                 ui.horizontal(|ui| {
                     for (value, label) in [("low", "Fast"), ("medium", "Balanced"), ("high", "Deep")] {
                         ui.radio_value(&mut self.data.settings.effort, value.to_owned(), label);
@@ -127,12 +127,13 @@ impl TattileApp {
     }
 
     fn appearance_card(&mut self, ui: &mut Ui) {
+        let p = pal(ui);
         card(ui, |ui| {
-            ui.label(RichText::new("Appearance").font(theme::heading(20.0)));
+            ui.label(RichText::new("Appearance").font(theme::heading(20.0)).color(p.text));
             section(ui, "Theme");
             ui.horizontal(|ui| {
                 for (value, label) in
-                    [(ThemeChoice::System, "Follow macOS"), (ThemeChoice::Light, "Light"), (ThemeChoice::Dark, "Dark")]
+                    [(ThemeChoice::System, "Match macOS"), (ThemeChoice::Light, "Light"), (ThemeChoice::Dark, "Dark")]
                 {
                     ui.radio_value(&mut self.data.settings.theme, value, label);
                 }
@@ -147,13 +148,13 @@ impl TattileApp {
         let dir = storage::data_dir();
         let mut open = false;
         card(ui, |ui| {
-            ui.label(RichText::new("Your data").font(theme::heading(20.0)));
+            ui.label(RichText::new("Your data").font(theme::heading(20.0)).color(p.text));
             ui.label(
-                RichText::new("Drafts, reviews, and goals stay on this Mac. Text goes only to the AI you ask.")
+                RichText::new("Drafts, reviews, and goals stay on this Mac. Text goes only to the AI that you ask.")
                     .color(p.weak),
             );
-            ui.label(RichText::new(dir.display().to_string()).monospace().size(12.0));
-            if ui.button("Show in Finder").clicked() {
+            ui.label(RichText::new(dir.display().to_string()).monospace().size(12.0).color(p.text2));
+            if button(ui, "Show in Finder").clicked() {
                 open = true;
             }
         });

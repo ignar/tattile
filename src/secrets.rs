@@ -25,6 +25,19 @@ pub fn env_var(provider: Provider) -> &'static str {
     }
 }
 
+/// Where the key is, without reading it. A search for attributes only does not show
+/// the macOS Keychain permission dialog, so the app can start without waiting for it.
+pub fn source(provider: Provider) -> KeySource {
+    if keychain::exists(account(provider)) {
+        return KeySource::Keychain;
+    }
+    match std::env::var(env_var(provider)) {
+        Ok(key) if !key.trim().is_empty() => KeySource::Env,
+        _ => KeySource::Missing,
+    }
+}
+
+/// Reads the key. After a rebuild, macOS can show its Keychain permission dialog here.
 pub fn load(provider: Provider) -> (String, KeySource) {
     if let Some(key) = keychain::get(account(provider)) {
         return (key, KeySource::Keychain);
@@ -45,9 +58,21 @@ pub fn delete(provider: Provider) -> Result<(), String> {
 
 #[cfg(target_os = "macos")]
 mod keychain {
+    use security_framework::item::{ItemClass, ItemSearchOptions};
     use security_framework::passwords::{delete_generic_password, get_generic_password, set_generic_password};
 
     use super::SERVICE;
+
+    pub fn exists(account: &str) -> bool {
+        ItemSearchOptions::new()
+            .class(ItemClass::generic_password())
+            .service(SERVICE)
+            .account(account)
+            .load_attributes(true)
+            .limit(1)
+            .search()
+            .is_ok_and(|found| !found.is_empty())
+    }
 
     pub fn get(account: &str) -> Option<String> {
         let bytes = get_generic_password(SERVICE, account).ok()?;
@@ -65,6 +90,10 @@ mod keychain {
 
 #[cfg(not(target_os = "macos"))]
 mod keychain {
+    pub fn exists(_account: &str) -> bool {
+        false
+    }
+
     pub fn get(_account: &str) -> Option<String> {
         None
     }

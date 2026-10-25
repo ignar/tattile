@@ -65,6 +65,8 @@ Run the tests:
 cargo test
 ```
 
+In a debug build, set `TATTILE_DEBUG_LAYOUT=1` to mark widgets that are wider than their space.
+
 ## Connect Claude and Grok
 
 1. Open **Settings** in the app.
@@ -92,7 +94,8 @@ To use a different model, type its ID in **Settings → Model**, or pick one fro
 ## Architecture
 
 The app is one Rust binary. It uses [egui/eframe](https://github.com/emilk/egui) 0.37 for the UI.
-egui is immediate-mode: each frame draws the UI again from the app state.
+egui is immediate-mode: each frame draws the UI again from the app state. The window has no title
+bar: the traffic lights sit in the sidebar, and the top strip of each column moves the window.
 
 | File | Job |
 |---|---|
@@ -102,9 +105,9 @@ egui is immediate-mode: each frame draws the UI again from the app state.
 | `src/analysis.rs` | The offline checks: words, sentences, readability, passive voice, word lists. |
 | `src/prompts.rs` | Practice assignments and the instructions for the AI coach. |
 | `src/ai.rs` | HTTP clients for Claude and Grok, the JSON schema, and response parsing. |
-| `src/secrets.rs` | API keys in the macOS Keychain, with environment variables as a fallback. |
+| `src/secrets.rs` | API keys in the macOS Keychain, with environment variables as a fallback. At startup the app only checks that a key exists. It reads the key when you ask for a review. |
 | `src/storage.rs` | Atomic save and load of the JSON file. |
-| `src/theme.rs` | Light and dark palettes, macOS system fonts, and widget styles. |
+| `src/theme.rs` | Light and dark palettes in the style of the Claude desktop app, macOS fonts (SF Pro, New York), and widget styles. |
 | `src/ui/` | The screens: sidebar, write (editor), feedback panel, goals, progress, settings. |
 
 How a review works:
@@ -119,7 +122,8 @@ How a review works:
 ## Limits of this proof of concept
 
 - The app is not signed with a Developer ID, so it runs only on the Mac that built it (ad-hoc
-  signature). After a rebuild, macOS can ask again for Keychain access.
+  signature). After a rebuild, macOS asks again for Keychain access the first time you ask for a
+  review. Click "Always Allow".
 - The offline checks use word lists and simple rules. They do not check grammar. The AI review
   does that.
 - A request waits for the full answer (no streaming). A review takes 20 to 90 seconds.

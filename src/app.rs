@@ -6,7 +6,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
 
 use chrono::Local;
-use egui::{Align2, Frame, Id, Margin, RichText, Stroke, vec2};
+use egui::{Align2, Frame, Id, Margin, RichText, vec2};
 
 use crate::ai::{self, AiEvent, ReviewJob};
 use crate::analysis::{IssueKind, word_count};
@@ -46,7 +46,9 @@ pub struct Toast {
 }
 
 pub struct KeyState {
+    /// Empty until the key is needed. See `TattileApp::api_key`.
     pub value: String,
+    pub loaded: bool,
     pub source: KeySource,
     pub input: String,
 }
@@ -109,8 +111,8 @@ impl TattileApp {
         let keys = Provider::ALL
             .into_iter()
             .map(|p| {
-                let (value, source) = secrets::load(p);
-                (p, KeyState { value, source, input: String::new() })
+                // Do not read the secret yet: that can show a Keychain dialog before the window opens.
+                (p, KeyState { value: String::new(), loaded: false, source: secrets::source(p), input: String::new() })
             })
             .collect();
         let (tx, rx) = mpsc::channel();
@@ -194,12 +196,11 @@ impl TattileApp {
 
     pub fn request_review(&mut self, provider: Provider, ctx: &egui::Context) {
         let Some(index) = self.current else { return };
-        let key = self.keys[&provider].value.clone();
-        if key.is_empty() {
+        let Some(key) = self.api_key(provider) else {
             self.notify(format!("Add your {} API key in Settings first.", provider.label()), ToastKind::Error);
             self.view = View::Settings;
             return;
-        }
+        };
         let session = &self.data.sessions[index];
         if word_count(&session.text) < 15 {
             self.notify("Write at least 15 words. Then ask for feedback.", ToastKind::Info);
@@ -241,12 +242,23 @@ impl TattileApp {
         ai::spawn_review(job, self.tx.clone(), ctx.clone());
     }
 
+    /// The API key, read from the Keychain (or the environment) the first time it is needed.
+    pub fn api_key(&mut self, provider: Provider) -> Option<String> {
+        let ks = self.keys.get_mut(&provider).expect("every provider has a key state");
+        if !ks.loaded && ks.source != KeySource::Missing {
+            let (value, source) = secrets::load(provider);
+            ks.value = value;
+            ks.source = source;
+            ks.loaded = true;
+        }
+        Some(ks.value.clone()).filter(|k| !k.is_empty())
+    }
+
     pub fn load_models(&mut self, provider: Provider, ctx: &egui::Context) {
-        let key = self.keys[&provider].value.clone();
-        if key.is_empty() {
+        let Some(key) = self.api_key(provider) else {
             self.notify(format!("Save a {} API key first.", provider.label()), ToastKind::Error);
             return;
-        }
+        };
         self.loading_models.insert(provider);
         ai::spawn_list_models(provider, key, self.tx.clone(), ctx.clone());
     }
@@ -260,6 +272,7 @@ impl TattileApp {
             Ok(()) => {
                 let ks = self.keys.get_mut(&provider).expect("every provider has a key state");
                 ks.value = input;
+                ks.loaded = true;
                 ks.source = KeySource::Keychain;
                 ks.input.clear();
                 self.notify(format!("The {} key is saved in your Keychain.", provider.label()), ToastKind::Success);
@@ -271,10 +284,10 @@ impl TattileApp {
     pub fn remove_key(&mut self, provider: Provider) {
         match secrets::delete(provider) {
             Ok(()) => {
-                let (value, source) = secrets::load(provider);
                 let ks = self.keys.get_mut(&provider).expect("every provider has a key state");
-                ks.value = value;
-                ks.source = source;
+                ks.value.clear();
+                ks.loaded = false;
+                ks.source = secrets::source(provider);
                 self.notify(format!("The {} key is removed from your Keychain.", provider.label()), ToastKind::Info);
             }
             Err(e) => self.notify(e, ToastKind::Error),
@@ -422,24 +435,20 @@ impl TattileApp {
         };
         let text = toast.text.clone();
         let mut close = false;
-        egui::Area::new(Id::unique("toast")).anchor(Align2::CENTER_BOTTOM, vec2(0.0, -28.0)).show(ctx, |ui| {
+        // A quiet pill near the bottom, above the composer bar.
+        egui::Area::new(Id::unique("toast")).anchor(Align2::CENTER_BOTTOM, vec2(0.0, -92.0)).show(ctx, |ui| {
             Frame::new()
-                .fill(p.card)
-                .stroke(Stroke::new(1.0, color.gamma_multiply(0.6)))
+                .fill(p.toast_bg)
                 .corner_radius(12)
-                .inner_margin(Margin::symmetric(16, 10))
-                .shadow(egui::Shadow {
-                    offset: [0, 4],
-                    blur: 18,
-                    spread: 0,
-                    color: egui::Color32::from_black_alpha(40),
-                })
+                .inner_margin(Margin { left: 14, right: 6, top: 6, bottom: 6 })
+                .shadow(egui::Shadow { offset: [0, 6], blur: 20, spread: 0, color: p.shadow })
                 .show(ui, |ui| {
                     ui.set_max_width(520.0);
                     ui.horizontal(|ui| {
-                        ui.label(RichText::new("●").color(color));
-                        ui.label(RichText::new(text).color(p.text));
-                        if ui.small_button("×").clicked() {
+                        let (dot, _) = ui.allocate_exact_size(vec2(8.0, 16.0), egui::Sense::hover());
+                        ui.painter().circle_filled(dot.center(), 3.5, color);
+                        ui.label(RichText::new(text).color(p.toast_text));
+                        if crate::ui::widgets::text_button(ui, "×", p.toast_text).clicked() {
                             close = true;
                         }
                     });
@@ -462,11 +471,13 @@ impl TattileApp {
             ui.label(format!("\"{title}\" and all its reviews will be deleted. You cannot undo this."));
             ui.add_space(8.0);
             ui.horizontal(|ui| {
-                if ui.button("Cancel").clicked() {
+                if crate::ui::widgets::button(ui, "Cancel").clicked() {
                     decision = Some(false);
                 }
                 let p = theme::palette(ui.visuals().dark_mode);
-                if crate::ui::widgets::soft_button(ui, "Delete", p.danger).clicked() {
+                let delete =
+                    egui::Button::new(RichText::new("Delete").color(p.on_accent)).fill(p.danger).corner_radius(8);
+                if ui.add(delete.min_size(vec2(0.0, 30.0))).clicked() {
                     decision = Some(true);
                 }
             });
@@ -517,9 +528,9 @@ impl eframe::App for TattileApp {
 
         egui::Panel::left("sidebar")
             .resizable(false)
-            .exact_size(250.0)
-            .show_separator_line(false)
-            .frame(Frame::new().fill(p.sidebar).inner_margin(Margin { left: 16, right: 16, top: 22, bottom: 16 }))
+            .exact_size(248.0)
+            .show_separator_line(true)
+            .frame(Frame::new().fill(p.sidebar).inner_margin(Margin { left: 10, right: 10, top: 0, bottom: 10 }))
             .show(ui, |ui| self.sidebar(ui));
 
         egui::CentralPanel::default().frame(Frame::new().fill(p.bg)).show(ui, |ui| match self.view {
