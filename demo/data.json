@@ -1,0 +1,137 @@
+{
+  "goal": {
+    "daily_words": 300,
+    "weekly_sessions": 4,
+    "target_score": 80,
+    "doc_type": "TechMemo",
+    "focus": ["Articles", "Prepositions", "Concision"],
+    "why": "I want my technical memos to sound clear and confident to my director."
+  },
+  "settings": {
+    "claude_model": "claude-opus-5-5",
+    "grok_model": "grok-4.5",
+    "effort": "medium",
+    "theme": "System",
+    "editor_font_size": 18.0
+  },
+  "daily_words": {
+    "2026-10-11": 340, "2026-10-12": 120, "2026-10-14": 410, "2026-10-15": 300, "2026-10-16": 280,
+    "2026-10-17": 520, "2026-10-18": 90, "2026-10-19": 310, "2026-10-20": 330, "2026-10-21": 305,
+    "2026-10-22": 450, "2026-10-23": 360, "2026-10-24": 135
+  },
+  "sessions": [
+    {
+      "id": 1760900000000,
+      "doc_type": "Promo",
+      "title": "Impact: zero-downtime database migration",
+      "prompt": "Write the \"Impact\" section of a promotion document for a senior engineer who led a database migration with zero downtime.",
+      "text": "Maria led the migration of our main Postgres cluster from version 11 to 16. She designed a dual-write plan, wrote the runbook, and coordinated four teams. We finished the migration in six weeks with zero downtime and no data loss.",
+      "created_at": "2026-10-19T10:00:00-07:00",
+      "updated_at": "2026-10-19T11:30:00-07:00",
+      "iterations": [
+        {
+          "provider": "Claude",
+          "model": "claude-opus-5-5",
+          "at": "2026-10-19T11:20:00-07:00",
+          "words": 40,
+          "text": "Maria led the migration of our main Postgres cluster from version 11 to 16. She designed a dual-write plan, wrote the runbook, and coordinated four teams. We finished the migration in six weeks with zero downtime and no data loss.",
+          "review": {
+            "score": 79.0,
+            "summary": "Clear and concrete. Add the business impact: what the migration made possible.",
+            "strengths": ["Strong verbs: led, designed, coordinated."],
+            "improvements": ["Say why the migration mattered to the business."],
+            "corrections": [],
+            "patterns": ["Missing articles before singular nouns"],
+            "rewrite": "",
+            "next_exercise": ""
+          }
+        }
+      ],
+      "baseline": null
+    },
+    {
+      "id": 1761300000000,
+      "doc_type": "TechMemo",
+      "title": "Move billing from polling to webhooks",
+      "prompt": "Write a technical memo that explains why your team will move from REST polling to webhooks. Start with the decision, then the context, then the risks.",
+      "text": "Decision: we will move the billing service from REST polling to webhooks in Q1.\n\nContext: Today our system polls the payment provider every 30 seconds. It creates a lot of unnecessary load and in order to reduce the costs we need to change the approach. The polling was implemented by previous team three years ago, and since that time the traffic is grown five times. In the last month we had two incidents, when the provider was rate limiting us and the invoices were not updated during 2 hours, which was very painful for the customers and for the support team that had to answer on many tickets.\n\nRisks: I think the main risk is that webhooks can be lost. We will utilize a retry queue and a daily reconciliation job to protect against this.",
+      "created_at": "2026-10-24T09:00:00-07:00",
+      "updated_at": "2026-10-24T10:40:00-07:00",
+      "iterations": [
+        {
+          "provider": "Claude",
+          "model": "claude-opus-5-5",
+          "at": "2026-10-24T09:30:00-07:00",
+          "words": 98,
+          "text": "We will move billing to webhooks. Currently our system is polling the provider every 30 seconds and it creates a lot of load. The polling was implemented by previous team and since that time the traffic is grown five times.",
+          "review": {
+            "score": 61.0,
+            "summary": "The decision is clear, but the context is thin and there are several grammar errors.",
+            "strengths": ["You start with the decision."],
+            "improvements": ["Add the incidents as evidence.", "Add a Risks section."],
+            "corrections": [],
+            "patterns": ["Missing articles before singular nouns", "Present perfect for changes over time"],
+            "rewrite": "",
+            "next_exercise": ""
+          }
+        },
+        {
+          "provider": "Grok",
+          "model": "grok-4.5",
+          "at": "2026-10-24T10:35:00-07:00",
+          "words": 134,
+          "text": "Decision: we will move the billing service from REST polling to webhooks in Q1.\n\nContext: Today our system polls the payment provider every 30 seconds. It creates a lot of unnecessary load and in order to reduce the costs we need to change the approach. The polling was implemented by previous team three years ago, and since that time the traffic is grown five times. In the last month we had two incidents, when the provider was rate limiting us and the invoices were not updated during 2 hours, which was very painful for the customers and for the support team that had to answer on many tickets.\n\nRisks: I think the main risk is that webhooks can be lost. We will utilize a retry queue and a daily reconciliation job to protect against this.",
+          "review": {
+            "score": 66.0,
+            "summary": "Good structure. The context paragraph has one very long sentence and a few grammar slips.",
+            "strengths": ["Clear decision, context, and risks."],
+            "improvements": ["Split the long incident sentence."],
+            "corrections": [
+              { "original": "by previous team", "suggestion": "by the previous team", "category": "articles", "explanation": "Use \"the\" before a specific team that the reader knows.", "severity": "error", "status": "Open" },
+              { "original": "during 2 hours", "suggestion": "for two hours", "category": "prepositions", "explanation": "Use \"for\" with a length of time.", "severity": "error", "status": "Open" }
+            ],
+            "patterns": ["Wrong preposition with time expressions"],
+            "rewrite": "",
+            "next_exercise": ""
+          }
+        },
+        {
+          "provider": "Claude",
+          "model": "claude-opus-5-5",
+          "at": "2026-10-24T10:38:00-07:00",
+          "words": 134,
+          "text": "Decision: we will move the billing service from REST polling to webhooks in Q1.\n\nContext: Today our system polls the payment provider every 30 seconds. It creates a lot of unnecessary load and in order to reduce the costs we need to change the approach. The polling was implemented by previous team three years ago, and since that time the traffic is grown five times. In the last month we had two incidents, when the provider was rate limiting us and the invoices were not updated during 2 hours, which was very painful for the customers and for the support team that had to answer on many tickets.\n\nRisks: I think the main risk is that webhooks can be lost. We will utilize a retry queue and a daily reconciliation job to protect against this.",
+          "review": {
+            "score": 72.0,
+            "summary": "Much better than the first draft: the memo now has a clear decision, evidence, and risks. The remaining problems are articles, two prepositions, one tense error, and a 50-word sentence in the context.",
+            "strengths": [
+              "Bottom line up front: the first line gives the decision.",
+              "The incidents are concrete evidence for the change."
+            ],
+            "improvements": [
+              "Split the incident sentence into two or three sentences.",
+              "Remove hedges such as \"I think\" in the Risks section. State the risk directly.",
+              "Use plain words: \"use\" instead of \"utilize\"."
+            ],
+            "corrections": [
+              { "original": "by previous team", "suggestion": "by the previous team", "category": "articles", "explanation": "Use \"the\" before a noun that the reader already knows.", "severity": "error", "status": "Open" },
+              { "original": "the traffic is grown", "suggestion": "the traffic has grown", "category": "verb_tense", "explanation": "Use the present perfect for a change from the past until now.", "severity": "error", "status": "Open" },
+              { "original": "during 2 hours", "suggestion": "for two hours", "category": "prepositions", "explanation": "Use \"for\" with a length of time; \"during\" goes with a named period.", "severity": "error", "status": "Open" },
+              { "original": "answer on many tickets", "suggestion": "answer many tickets", "category": "prepositions", "explanation": "\"Answer\" takes a direct object, with no preposition.", "severity": "error", "status": "Open" },
+              { "original": "two incidents, when", "suggestion": "two incidents when", "category": "punctuation", "explanation": "Do not put a comma before a clause that defines the noun.", "severity": "suggestion", "status": "Open" },
+              { "original": "It creates a lot of unnecessary load and in order to reduce the costs we need to change the approach.", "suggestion": "This creates unnecessary load. To cut costs, we need a different approach.", "category": "concision", "explanation": "Two short sentences are easier to read than one long one.", "severity": "suggestion", "status": "Open" }
+            ],
+            "patterns": [
+              "Missing articles before singular nouns",
+              "Present perfect for changes over time",
+              "Wrong preposition with time expressions"
+            ],
+            "rewrite": "Decision: In Q1, we will move the billing service from REST polling to webhooks.\n\nContext: Today, our system polls the payment provider every 30 seconds. This creates unnecessary load. To cut costs, we need a different approach. The previous team built the polling three years ago, and since then our traffic has grown fivefold. Last month, the provider rate-limited us twice. Both times, invoices did not update for two hours. Customers were frustrated, and the support team had to answer many tickets.\n\nRisks: Webhooks can be lost. To protect against this, we will use a retry queue and a daily reconciliation job.",
+            "next_exercise": "Write five sentences about changes in your team since last year. Use the present perfect in each one (for example: \"Our on-call load has doubled\"). Then check each singular noun for an article."
+          }
+        }
+      ],
+      "baseline": ["2026-10-24", 0]
+    }
+  ]
+}
