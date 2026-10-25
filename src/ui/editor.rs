@@ -53,7 +53,9 @@ pub fn ai_marks(text: &str, corrections: &[(String, bool)]) -> Vec<Mark> {
 /// When marks overlap, the higher number wins.
 fn priority(kind: IssueKind) -> u8 {
     match kind {
-        IssueKind::DialoguePunctuation => 10,
+        IssueKind::DialoguePunctuation | IssueKind::SlowStart => 10,
+        IssueKind::InlineList => 3,
+        IssueKind::LongParagraph => 1,
         IssueKind::TellingEmotion => 9,
         IssueKind::FilterWord | IssueKind::DialogueTag => 8,
         IssueKind::Repeated => 6,

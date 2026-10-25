@@ -24,14 +24,19 @@ technical memos, promotion documents, status updates, and stories.
   dialogue tags ("said quietly"), and a period before a dialogue tag. Stories skip the long-sentence
   check, and style checks ignore the text inside dialogue. The stats show sentence variety and the
   share of dialogue.
+- **Message mode.** For a reply to a question in chat or email, the assignment card holds the
+  question. Paste a real question that you received, or practice with a built-in one. The checks
+  flag a slow start ("Great question!", "It depends", "To give you some context"), long paragraphs,
+  a list inside one sentence, and sentences over 20 words. The AI scores the reply on: answer
+  first, easy to scan, plain language, complete, concise, and tone.
 - **AI review from Claude and Grok.** One click sends the draft for a review. You get:
   - a score from 0 to 100, and the change since the last review,
   - exact corrections (original → suggestion) with a short rule for each one,
   - what works, what to improve, and your recurring habits,
   - a polished version to compare with,
   - one targeted exercise for your weakest area,
-  - for stories, craft scores from 0 to 10: arc, show-don't-tell, specific detail, rhythm,
-    consistency, and dialogue. The Progress page shows their averages over the last five stories.
+  - for stories and messages, craft scores from 0 to 10. The Progress page shows their averages
+    over the last five reviews of each type.
 - **The feedback loop.** Apply corrections one by one or all at once (with Undo), revise, and ask
   again. The History tab shows each round and the score trend. "Ask both" gets two opinions. The app
   marks corrections that both Claude and Grok agree on.

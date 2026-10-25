@@ -165,15 +165,31 @@ impl TattileApp {
                         meta_changed |= ui.add(title).changed();
                         ui.add_space(12.0);
 
+                        // For a message, the assignment is the question. Paste a real one that you received.
+                        let (card_label, new_label, edit_hint, empty_text) = if doc.answers_a_question() {
+                            (
+                                "Question to answer",
+                                "New question",
+                                "Paste the question that you received.",
+                                "No question yet. Click Edit and paste the question that you received.",
+                            )
+                        } else {
+                            (
+                                "Assignment",
+                                "New prompt",
+                                "Describe what you want to write.",
+                                "No assignment. Write about anything.",
+                            )
+                        };
                         soft_card(ui, |ui| {
                             ui.horizontal(|ui| {
-                                ui.label(RichText::new("Assignment").size(12.0).color(p.weak));
+                                ui.label(RichText::new(card_label).size(12.0).color(p.weak));
                                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                                     ui.spacing_mut().item_spacing.x = 2.0;
                                     if text_button(ui, if editing_prompt { "Done" } else { "Edit" }, p.weak).clicked() {
                                         toggle_edit = true;
                                     }
-                                    if text_button(ui, "New prompt", p.weak).clicked() {
+                                    if text_button(ui, new_label, p.weak).clicked() {
                                         new_prompt = true;
                                     }
                                 });
@@ -182,10 +198,10 @@ impl TattileApp {
                                 let edit = TextEdit::multiline(&mut session.prompt)
                                     .desired_rows(2)
                                     .desired_width(f32::INFINITY)
-                                    .hint_text("Describe what you want to write.");
+                                    .hint_text(edit_hint);
                                 meta_changed |= ui.add(edit).changed();
                             } else if session.prompt.trim().is_empty() {
-                                ui.label(RichText::new("No assignment. Write about anything.").color(p.weak));
+                                ui.label(RichText::new(empty_text).color(p.weak));
                             } else {
                                 ui.label(RichText::new(session.prompt.as_str()).size(14.5).color(p.text2));
                             }

@@ -57,7 +57,6 @@ impl TattileApp {
     fn checks_tab(&self, ui: &mut Ui, doc: DocType, analysis: &Analysis, actions: &mut Vec<Action>) {
         let p = pal(ui);
         let st = &analysis.stats;
-        let story = doc == DocType::Story;
         card(ui, |ui| {
             ui.columns(3, |cols| {
                 stat(&mut cols[0], "Words", &st.words.to_string());
@@ -66,21 +65,32 @@ impl TattileApp {
             });
             ui.add_space(8.0);
             ui.columns(3, |cols| {
-                if story {
-                    stat(&mut cols[0], "Variety (± words)", &format!("{:.0}", st.length_variety)).on_hover_text(
-                        "How much sentence lengths vary, in words. Good prose often varies by ±5 or more.",
-                    );
-                    stat(&mut cols[1], "Dialogue", &format!("{:.0}%", st.dialogue_share * 100.0));
-                } else {
-                    stat(&mut cols[0], "Reading ease", &format!("{:.0}", st.reading_ease));
-                    stat(&mut cols[1], "Paragraphs", &st.paragraphs.to_string());
+                match doc {
+                    DocType::Story => {
+                        stat(&mut cols[0], "Variety (± words)", &format!("{:.0}", st.length_variety)).on_hover_text(
+                            "How much sentence lengths vary, in words. Good prose often varies by ±5 or more.",
+                        );
+                        stat(&mut cols[1], "Dialogue", &format!("{:.0}%", st.dialogue_share * 100.0));
+                    }
+                    DocType::Message => {
+                        stat(&mut cols[0], "Word target", "150 or less")
+                            .on_hover_text("Most readers stop after about 150 words in a chat message or email.");
+                        stat(&mut cols[1], "Longest paragraph", &format!("{} words", st.longest_paragraph));
+                    }
+                    _ => {
+                        stat(&mut cols[0], "Reading ease", &format!("{:.0}", st.reading_ease));
+                        stat(&mut cols[1], "Paragraphs", &st.paragraphs.to_string());
+                    }
                 }
                 stat(&mut cols[2], "Grade", &format!("{:.0}", st.grade));
             });
         });
 
-        let title =
-            if story { "Story checks · click to show or hide" } else { "What to look at · click to show or hide" };
+        let title = match doc {
+            DocType::Story => "Story checks · click to show or hide",
+            DocType::Message => "Message checks · click to show or hide",
+            _ => "What to look at · click to show or hide",
+        };
         section(ui, title);
         for &kind in IssueKind::for_doc(doc) {
             let count = analysis.count(kind);

@@ -6,7 +6,10 @@ use std::ops::Range;
 
 use crate::model::DocType;
 
-pub const LONG_SENTENCE_WORDS: usize = 25;
+/// The most words in one sentence before the check flags it. Messages are read on a phone, so they get less.
+pub fn long_sentence_limit(doc: DocType) -> usize {
+    if doc == DocType::Message { 20 } else { 25 }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum IssueKind {
@@ -24,7 +27,25 @@ pub enum IssueKind {
     MonotoneRhythm,
     DialogueTag,
     DialoguePunctuation,
+    // Message checks.
+    SlowStart,
+    LongParagraph,
+    InlineList,
 }
+
+/// Messages must give the answer first and be easy to scan.
+const MESSAGE_KINDS: [IssueKind; 10] = [
+    IssueKind::SlowStart,
+    IssueKind::LongParagraph,
+    IssueKind::InlineList,
+    IssueKind::LongSentence,
+    IssueKind::Passive,
+    IssueKind::Wordy,
+    IssueKind::Complex,
+    IssueKind::Filler,
+    IssueKind::Hedge,
+    IssueKind::Repeated,
+];
 
 const BUSINESS_KINDS: [IssueKind; 7] = [
     IssueKind::LongSentence,
@@ -53,7 +74,7 @@ const STORY_KINDS: [IssueKind; 12] = [
 ];
 
 impl IssueKind {
-    pub const ALL: [IssueKind; 13] = [
+    pub const ALL: [IssueKind; 16] = [
         IssueKind::LongSentence,
         IssueKind::Passive,
         IssueKind::Wordy,
@@ -67,16 +88,30 @@ impl IssueKind {
         IssueKind::MonotoneRhythm,
         IssueKind::DialogueTag,
         IssueKind::DialoguePunctuation,
+        IssueKind::SlowStart,
+        IssueKind::LongParagraph,
+        IssueKind::InlineList,
     ];
 
     /// The checks that make sense for this kind of document.
     pub fn for_doc(doc: DocType) -> &'static [IssueKind] {
-        if doc == DocType::Story { &STORY_KINDS } else { &BUSINESS_KINDS }
+        match doc {
+            DocType::Story => &STORY_KINDS,
+            DocType::Message => &MESSAGE_KINDS,
+            _ => &BUSINESS_KINDS,
+        }
     }
 
     /// Checks that mark a whole sentence, or a group of sentences, with a background color.
     pub fn marks_sentences(self) -> bool {
-        matches!(self, IssueKind::LongSentence | IssueKind::TenseShift | IssueKind::MonotoneRhythm)
+        matches!(
+            self,
+            IssueKind::LongSentence
+                | IssueKind::TenseShift
+                | IssueKind::MonotoneRhythm
+                | IssueKind::LongParagraph
+                | IssueKind::InlineList
+        )
     }
 
     pub fn label(self) -> &'static str {
@@ -94,12 +129,15 @@ impl IssueKind {
             IssueKind::MonotoneRhythm => "Same sentence length",
             IssueKind::DialogueTag => "Adverb in a dialogue tag",
             IssueKind::DialoguePunctuation => "Dialogue punctuation",
+            IssueKind::SlowStart => "Slow start",
+            IssueKind::LongParagraph => "Long paragraph",
+            IssueKind::InlineList => "List in a sentence",
         }
     }
 
     pub fn hint(self) -> &'static str {
         match self {
-            IssueKind::LongSentence => "Split it. One idea per sentence, 25 words or less.",
+            IssueKind::LongSentence => "Split it. One idea per sentence.",
             IssueKind::Passive => "Say who does the action: \"The team fixed the bug.\"",
             IssueKind::Wordy => "Use the short form.",
             IssueKind::Complex => "Use the simple word. Plain words sound confident.",
@@ -112,6 +150,9 @@ impl IssueKind {
             IssueKind::MonotoneRhythm => "Mix short and long sentences.",
             IssueKind::DialogueTag => "Let the words, or an action, show how it was said.",
             IssueKind::DialoguePunctuation => "Use a comma before a tag: \"Go,\" she said.",
+            IssueKind::SlowStart => "Start with the answer. Put the context after it.",
+            IssueKind::LongParagraph => "Break it up: three sentences or less per paragraph.",
+            IssueKind::InlineList => "Use a bullet list, one item per line.",
         }
     }
 }
@@ -139,6 +180,8 @@ pub struct Stats {
     pub length_variety: f32,
     /// The part of the words that is inside quotation marks (0 to 1).
     pub dialogue_share: f32,
+    /// The word count of the longest paragraph (lists not included).
+    pub longest_paragraph: usize,
 }
 
 impl Stats {
@@ -625,15 +668,16 @@ pub fn analyze(text: &str, doc: DocType) -> Analysis {
         .collect();
 
     // Sentence length. Stories skip this check.
+    let limit = long_sentence_limit(doc);
     let mut long_sentences = 0;
     for (s, &n) in sentence_ranges.iter().zip(&lengths) {
-        if n > LONG_SENTENCE_WORDS {
+        if n > limit {
             long_sentences += 1;
             if !story {
                 issues.push(Issue {
                     kind: IssueKind::LongSentence,
                     range: s.clone(),
-                    message: format!("This sentence has {n} words. Try {LONG_SENTENCE_WORDS} or less."),
+                    message: format!("This sentence has {n} words. Try {limit} or less."),
                 });
             }
         }
@@ -715,6 +759,13 @@ pub fn analyze(text: &str, doc: DocType) -> Analysis {
         });
     }
 
+    let blocks = paragraph_blocks(text);
+    if doc == DocType::Message {
+        slow_starts(text, &lower, &sentence_ranges, &lengths, &mut issues);
+        long_paragraphs(&blocks, &sentence_ranges, &word_ranges, &mut issues);
+        inline_lists(text, &sentence_ranges, &lengths, &mut issues);
+    }
+
     issues.sort_by_key(|i| (i.range.start, i.range.end));
 
     let words_n = word_ranges.len();
@@ -737,6 +788,12 @@ pub fn analyze(text: &str, doc: DocType) -> Analysis {
     };
     let dialogue_words = word_ranges.iter().filter(|w| inside(&dialogue, w)).count();
     let dialogue_share = if words_n == 0 { 0.0 } else { dialogue_words as f32 / words_n as f32 };
+    let longest_paragraph = blocks
+        .iter()
+        .filter(|(_, is_list)| !is_list)
+        .map(|(r, _)| word_ranges.iter().filter(|w| w.start >= r.start && w.end <= r.end).count())
+        .max()
+        .unwrap_or(0);
 
     Analysis {
         stats: Stats {
@@ -750,8 +807,144 @@ pub fn analyze(text: &str, doc: DocType) -> Analysis {
             long_sentences,
             length_variety,
             dialogue_share,
+            longest_paragraph,
         },
         issues,
+    }
+}
+
+/// Phrases that delay the answer at the start of a message.
+const SLOW_OPENERS: &[&str] = &[
+    "great question",
+    "good question",
+    "thanks for asking",
+    "thank you for asking",
+    "thanks for the question",
+    "i hope this message finds you well",
+    "i hope you are well",
+    "hope you are doing well",
+    "hope you're doing well",
+    "just wanted to",
+    "let me explain",
+    "let me give you some context",
+    "let me give some context",
+    "to give you some context",
+    "to give some context",
+    "some context",
+    "as you know",
+    "first of all",
+    "before i answer",
+    "it depends",
+    "it's complicated",
+    "it’s complicated",
+    "it is complicated",
+    "that's a tricky one",
+    "this is a tricky one",
+    "so,",
+    "well,",
+    "basically,",
+];
+
+/// First words of a short greeting line ("Hi Anna,"). The check looks at the lines after it.
+const GREETINGS: &[&str] = &["hi", "hello", "hey", "dear", "morning", "good", "thanks", "thank"];
+
+/// Checks the first two sentences after a greeting for phrases that delay the answer.
+fn slow_starts(text: &str, lower: &str, sentences: &[Range<usize>], lengths: &[usize], issues: &mut Vec<Issue>) {
+    let mut checked = 0;
+    for (s, &n) in sentences.iter().zip(lengths) {
+        if checked == 2 {
+            break;
+        }
+        let sentence = &lower[s.clone()];
+        let opener = SLOW_OPENERS.iter().find(|o| sentence.starts_with(**o));
+        let first_word = sentence.split(|c: char| !c.is_alphanumeric()).find(|w| !w.is_empty()).unwrap_or("");
+        if checked == 0 && n <= 4 && GREETINGS.contains(&first_word) && opener.is_none() {
+            continue;
+        }
+        checked += 1;
+        if let Some(opener) = opener {
+            let end = s.start + opener.trim_end_matches(',').len();
+            issues.push(Issue {
+                kind: IssueKind::SlowStart,
+                range: s.start..end,
+                message: format!(
+                    "\"{}\" delays the answer. Start with the answer, then give the context.",
+                    &text[s.start..end]
+                ),
+            });
+        }
+    }
+}
+
+/// Paragraphs are blocks of text between blank lines. The flag is true if the block is mostly a list.
+fn paragraph_blocks(text: &str) -> Vec<(Range<usize>, bool)> {
+    let mut raw = Vec::new();
+    let mut start = 0;
+    for (i, _) in text.match_indices("\n\n") {
+        raw.push(start..i);
+        start = i + 2;
+    }
+    raw.push(start..text.len());
+    let mut out = Vec::new();
+    for range in raw {
+        let mut trimmed = Vec::new();
+        push_trimmed(text, range, &mut trimmed);
+        if let Some(r) = trimmed.pop() {
+            let lines: Vec<&str> = text[r.clone()].lines().map(str::trim).filter(|l| !l.is_empty()).collect();
+            let items = lines.iter().filter(|l| is_list_item(l)).count();
+            out.push((r, items > 0 && items * 2 >= lines.len()));
+        }
+    }
+    out
+}
+
+fn is_list_item(line: &str) -> bool {
+    if line.starts_with(['-', '*', '•', '–']) {
+        return true;
+    }
+    let digits = line.chars().take_while(char::is_ascii_digit).count();
+    digits > 0 && matches!(line[digits..].chars().next(), Some('.' | ')'))
+}
+
+/// On a phone, a paragraph with more than three sentences or 60 words looks like a wall of text.
+fn long_paragraphs(
+    blocks: &[(Range<usize>, bool)],
+    sentences: &[Range<usize>],
+    words: &[Range<usize>],
+    issues: &mut Vec<Issue>,
+) {
+    for (r, is_list) in blocks {
+        if *is_list {
+            continue;
+        }
+        let n_sentences = sentences.iter().filter(|s| s.start >= r.start && s.end <= r.end).count();
+        let n_words = words.iter().filter(|w| w.start >= r.start && w.end <= r.end).count();
+        if n_sentences > 3 || n_words > 60 {
+            issues.push(Issue {
+                kind: IssueKind::LongParagraph,
+                range: r.clone(),
+                message: format!(
+                    "This paragraph has {n_sentences} sentences and {n_words} words. On a phone, that is a wall of text."
+                ),
+            });
+        }
+    }
+}
+
+/// A long sentence like "we need to do A, do B, and do C" hides a list. Many commas alone are not
+/// enough (clauses also use commas): the part after the last comma must hold "and" or "or".
+fn inline_lists(text: &str, sentences: &[Range<usize>], lengths: &[usize], issues: &mut Vec<Issue>) {
+    for (s, &n) in sentences.iter().zip(lengths) {
+        let sentence = text[s.clone()].to_ascii_lowercase();
+        let tail = format!(" {} ", sentence.rsplit(',').next().unwrap_or(""));
+        let ends_like_a_list = tail.contains(" and ") || tail.contains(" or ");
+        if n >= 15 && sentence.matches(',').count() >= 2 && ends_like_a_list {
+            issues.push(Issue {
+                kind: IssueKind::InlineList,
+                range: s.clone(),
+                message: "This sentence lists several things. Use a bullet list, one item per line.".to_owned(),
+            });
+        }
     }
 }
 
@@ -1233,5 +1426,52 @@ mod tests {
         let a = analyze("\"Go,\" she said. We ran.", DocType::Story);
         assert!((a.stats.dialogue_share - 0.2).abs() < 0.01, "{}", a.stats.dialogue_share);
         assert!((a.stats.length_variety - 0.5).abs() < 0.01, "{}", a.stats.length_variety);
+    }
+
+    #[test]
+    fn messages_flag_a_slow_start_but_not_a_direct_answer() {
+        let slow = "Hi Anna,\nGreat question! It depends on the load. We can ship on Friday if the tests pass.";
+        let a = analyze(slow, DocType::Message);
+        assert_eq!(found(&a, slow, IssueKind::SlowStart), vec!["Great question", "It depends"]);
+        let direct = "Hi Anna,\nYes, we can ship on Friday. The load tests passed this morning.";
+        assert_eq!(analyze(direct, DocType::Message).count(IssueKind::SlowStart), 0);
+        assert_eq!(analyze(slow, DocType::TechMemo).count(IssueKind::SlowStart), 0);
+    }
+
+    #[test]
+    fn messages_flag_long_paragraphs_but_not_lists() {
+        let paragraph =
+            "We moved the date. The vendor was late. The tests failed twice. The team fixed them. We are ready now.";
+        assert_eq!(analyze(paragraph, DocType::Message).count(IssueKind::LongParagraph), 1);
+        let list = "Next steps:\n- Fix the tests.\n- Update the docs.\n- Tell support.\n- Ship on Friday.\n- Watch the graphs.";
+        assert_eq!(analyze(list, DocType::Message).count(IssueKind::LongParagraph), 0);
+    }
+
+    #[test]
+    fn messages_use_a_shorter_sentence_limit() {
+        let sentence = format!("{}.", vec!["word"; 22].join(" "));
+        assert_eq!(analyze(&sentence, DocType::Message).count(IssueKind::LongSentence), 1);
+        assert_eq!(analyze(&sentence, DocType::TechMemo).count(IssueKind::LongSentence), 0);
+        for kind in [IssueKind::SlowStart, IssueKind::LongParagraph, IssueKind::InlineList, IssueKind::LongSentence] {
+            assert!(IssueKind::for_doc(DocType::Message).contains(&kind), "{kind:?}");
+        }
+    }
+
+    #[test]
+    fn messages_flag_lists_inside_a_sentence() {
+        let t =
+            "Before Friday we need to update the schema, migrate the data, fix the reports, and tell the support team.";
+        assert_eq!(analyze(t, DocType::Message).count(IssueKind::InlineList), 1);
+        assert_eq!(analyze("Yes, we can, and we will, soon.", DocType::Message).count(IssueKind::InlineList), 0);
+        // Many clauses are not a list: a list ends with "and" or "or" after the last comma.
+        let clauses = "To give some context, the export reads all rows at once, and last month a big export failed, \
+                       which is why we added the tests.";
+        assert_eq!(analyze(clauses, DocType::Message).count(IssueKind::InlineList), 0);
+    }
+
+    #[test]
+    fn message_stats_include_the_longest_paragraph() {
+        let a = analyze("One two three.\n\nFour five six seven eight.", DocType::Message);
+        assert_eq!(a.stats.longest_paragraph, 5);
     }
 }

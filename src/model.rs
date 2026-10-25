@@ -14,12 +14,21 @@ pub enum DocType {
     Promo,
     Story,
     Update,
+    /// A reply to a question, in chat or email.
+    Message,
     Free,
 }
 
 impl DocType {
-    pub const ALL: [DocType; 6] =
-        [DocType::Strategy, DocType::TechMemo, DocType::Promo, DocType::Story, DocType::Update, DocType::Free];
+    pub const ALL: [DocType; 7] = [
+        DocType::Strategy,
+        DocType::TechMemo,
+        DocType::Promo,
+        DocType::Story,
+        DocType::Update,
+        DocType::Message,
+        DocType::Free,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {
@@ -28,8 +37,14 @@ impl DocType {
             DocType::Promo => "Promo packet",
             DocType::Story => "Story",
             DocType::Update => "Status update",
+            DocType::Message => "Message",
             DocType::Free => "Free writing",
         }
+    }
+
+    /// For a message, the assignment is the question that the writer answers.
+    pub fn answers_a_question(self) -> bool {
+        self == DocType::Message
     }
 
     /// Craft criteria that the AI coach scores from 0 to 10: (name, what it means).
@@ -45,6 +60,14 @@ impl DocType {
                     "Dialogue",
                     "Speech sounds natural and is punctuated correctly. Leave this out if there is no dialogue.",
                 ),
+            ],
+            DocType::Message => &[
+                ("Answer first", "The first one or two sentences answer the question directly."),
+                ("Easy to scan", "Short paragraphs, a list for several items, and the key point easy to find."),
+                ("Plain language", "Simple words and short sentences. A reader outside the team understands it."),
+                ("Complete", "It gives what the reader needs to act: the reason, the risk, or the next step."),
+                ("Concise", "No extra words or repeated points. Every sentence earns its place."),
+                ("Tone", "Calm, direct, and respectful for this reader."),
             ],
             _ => &[],
         }
@@ -71,6 +94,11 @@ impl DocType {
             }
             DocType::Update => {
                 "Status first; what changed, the risks, and the asks; easy to scan; calm and direct tone; no filler."
+            }
+            DocType::Message => {
+                "The answer comes first, in one or two sentences. Then the reason and the details, in short \
+                 paragraphs or a list. Plain words. A clear next step if one is needed. The reader understands \
+                 it in 30 seconds, on a phone, even when the question was complex."
             }
             DocType::Free => "Clear, correct, and natural English. Focus on grammar and natural word choice.",
         }
@@ -512,8 +540,9 @@ mod tests {
     #[test]
     fn demo_data_loads_and_its_corrections_match_their_drafts() {
         let data: AppData = serde_json::from_str(include_str!("../demo/data.json")).unwrap();
-        assert_eq!(data.sessions.len(), 3);
+        assert_eq!(data.sessions.len(), 4);
         assert!(!data.criteria_averages(DocType::Story, 5).is_empty(), "the demo needs a story with craft scores");
+        assert!(!data.criteria_averages(DocType::Message, 5).is_empty(), "the demo needs a message with craft scores");
         for it in data.sessions.iter().flat_map(|s| &s.iterations) {
             for c in &it.review.corrections {
                 assert!(it.text.contains(&c.original), "not in the draft: {}", c.original);

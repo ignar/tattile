@@ -100,6 +100,55 @@
       "baseline": null
     },
     {
+      "id": 1761250000000,
+      "doc_type": "Message",
+      "title": "Ship the export without load tests?",
+      "prompt": "A product manager asks: \"Can we ship the export feature on Friday if we skip the load tests?\"",
+      "text": "Hi Priya,\n\nGreat question! To give you some context, the export feature reads all rows of a report at once, and last month a large customer exported 2 million rows and the service ran out of memory, which is why we added the load tests in the first place. The tests takes two days. We could skip them. But it is risky. If we skip them, the first big export can crash the service for everyone.\n\nMy suggestion is that we ship on Friday behind a feature flag, turn it on for small customers first, watch the memory graphs over the weekend, and run the load tests on Monday before we turn it on for everyone.\n\nDoes that work for you?",
+      "created_at": "2026-10-24T08:00:00-07:00",
+      "updated_at": "2026-10-24T08:40:00-07:00",
+      "iterations": [
+        {
+          "provider": "Claude",
+          "model": "claude-opus-5-5",
+          "at": "2026-10-24T08:35:00-07:00",
+          "words": 119,
+          "text": "Hi Priya,\n\nGreat question! To give you some context, the export feature reads all rows of a report at once, and last month a large customer exported 2 million rows and the service ran out of memory, which is why we added the load tests in the first place. The tests takes two days. We could skip them. But it is risky. If we skip them, the first big export can crash the service for everyone.\n\nMy suggestion is that we ship on Friday behind a feature flag, turn it on for small customers first, watch the memory graphs over the weekend, and run the load tests on Monday before we turn it on for everyone.\n\nDoes that work for you?",
+          "review": {
+            "score": 66.0,
+            "summary": "The content is right, but the answer is hidden. Priya must read about 100 words to learn that the answer is \"no, but here is a safe plan\".",
+            "strengths": [
+              "You explain the real risk with a concrete example: 2 million rows.",
+              "You end with a clear question for the reader."
+            ],
+            "improvements": [
+              "Put the answer in the first sentence: \"No, not safely, but we can ship behind a flag.\"",
+              "Split the second paragraph, and write the plan as a short list."
+            ],
+            "corrections": [
+              { "original": "Great question! To give you some context, the export feature", "suggestion": "No, not safely. The export feature", "category": "structure", "explanation": "Answer the question in the first sentence. Give the context after it.", "severity": "suggestion", "status": "Open" },
+              { "original": "The tests takes two days.", "suggestion": "The tests take two days.", "category": "grammar", "explanation": "\"Tests\" is plural, so use \"take\".", "severity": "error", "status": "Open" },
+              { "original": "which is why we added the load tests in the first place", "suggestion": "so we added the load tests", "category": "concision", "explanation": "Say the same thing with fewer words.", "severity": "suggestion", "status": "Open" },
+              { "original": "We could skip them. But it is risky.", "suggestion": "We could skip them, but it is risky.", "category": "concision", "explanation": "Join two short sentences that make one point.", "severity": "suggestion", "status": "Open" },
+              { "original": "My suggestion is that we ship", "suggestion": "I suggest that we ship", "category": "word_choice", "explanation": "Use the verb \"suggest\", not the noun \"suggestion\". It is shorter and more direct.", "severity": "suggestion", "status": "Open" }
+            ],
+            "patterns": ["Context before the answer", "Long sentences with many clauses"],
+            "rewrite": "Hi Priya,\n\nNo, not safely. But we can still ship on Friday with a safer plan:\n\n- Ship behind a feature flag.\n- Turn it on for small customers first.\n- Watch the memory graphs over the weekend.\n- Run the load tests on Monday, then turn it on for everyone.\n\nWhy: last month, a 2-million-row export made the service run out of memory. The load tests catch this, but they take two days.\n\nDoes that work for you?",
+            "next_exercise": "Take a long reply that you sent this week. Rewrite its first sentence so that it answers the question in 12 words or less. Move the context below it.",
+            "criteria": [
+              { "name": "Answer first", "score": 3.0, "comment": "The answer comes in the third paragraph." },
+              { "name": "Easy to scan", "score": 5.0, "comment": "One long paragraph, and the plan is a list inside one sentence." },
+              { "name": "Plain language", "score": 7.0, "comment": "Mostly simple words, but two sentences are too long." },
+              { "name": "Complete", "score": 8.0, "comment": "It gives the risk, a plan, and a next step." },
+              { "name": "Concise", "score": 5.0, "comment": "About 40% of the words can go." },
+              { "name": "Tone", "score": 8.0, "comment": "Calm, friendly, and direct." }
+            ]
+          }
+        }
+      ],
+      "baseline": null
+    },
+    {
       "id": 1761300000000,
       "doc_type": "TechMemo",
       "title": "Move billing from polling to webhooks",

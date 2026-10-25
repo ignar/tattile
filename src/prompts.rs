@@ -36,6 +36,14 @@ pub fn assignments(doc: DocType) -> &'static [&'static str] {
             "Write an email that asks another team for help with a dependency. Keep it under 150 words.",
             "Summarize a one-hour architecture meeting in five bullet points, with owners and dates.",
         ],
+        DocType::Message => &[
+            "Your VP asks in Slack: \"Why did the payments migration slip two weeks, and will it slip again?\"",
+            "A product manager asks: \"Can we ship the export feature on Friday if we skip the load tests?\"",
+            "A new engineer asks: \"How do we decide if a bug is P1 or P2?\" Answer so that they can decide alone next time.",
+            "Your director asks by email: \"Should we hire two senior engineers or three mid-level engineers?\"",
+            "A customer success lead asks: \"Why does the dashboard show different numbers than the CSV export?\"",
+            "A peer manager asks: \"My team keeps missing sprint goals. What did you change on your team?\"",
+        ],
         DocType::Free => &[
             "Write about anything on your mind today. Aim for clear sentences, not perfect ones.",
             "Explain a technical concept that you know well to a 12-year-old.",
@@ -110,13 +118,23 @@ pub fn user_message(ctx: &CoachContext<'_>) -> String {
         ctx.focus.iter().map(|s| s.label()).collect::<Vec<_>>().join(", ")
     };
     let patterns = if ctx.patterns.is_empty() { "none recorded yet".to_owned() } else { ctx.patterns.join("; ") };
-    let assignment = if ctx.assignment.trim().is_empty() { "Free choice of topic." } else { ctx.assignment.trim() };
+    let assignment = if ctx.assignment.trim().is_empty() {
+        if ctx.doc_type.answers_a_question() {
+            "Not given. Judge the reply on its own."
+        } else {
+            "Free choice of topic."
+        }
+    } else {
+        ctx.assignment.trim()
+    };
+    let assignment_label = if ctx.doc_type.answers_a_question() { "The question being answered" } else { "Assignment" };
 
     let mut msg = format!(
-        "Document type: {}\nWhat good looks like for this type: {}\nAssignment: {}\n\
+        "Document type: {}\nWhat good looks like for this type: {}\n{}: {}\n\
          The student's focus areas: {}\nThe student's known recurring mistakes (check for these): {}\n",
         ctx.doc_type.label(),
         ctx.doc_type.rubric(),
+        assignment_label,
         assignment,
         focus,
         patterns,
@@ -131,6 +149,13 @@ pub fn user_message(ctx: &CoachContext<'_>) -> String {
         for (name, meaning) in criteria {
             msg.push_str(&format!("- {name}: {meaning}\n"));
         }
+    }
+    if ctx.doc_type == DocType::Message {
+        msg.push_str(
+            "This is a reply to a question. Judge it the way the reader reads it: quickly, on a phone. \
+             The question can be complex, but the reply must be easy to read. Check that the first sentence \
+             answers the question. Suggest a short list where it helps. The rewrite must answer in its first sentence.\n",
+        );
     }
     if ctx.doc_type == DocType::Story {
         msg.push_str(
@@ -214,5 +239,23 @@ mod tests {
         let memo = message_for(DocType::TechMemo);
         assert!(memo.contains("Return an empty \"criteria\" list."));
         assert!(system_prompt().contains("\"criteria\""));
+    }
+
+    #[test]
+    fn message_prompts_treat_the_assignment_as_the_question() {
+        let msg = user_message(&CoachContext {
+            doc_type: DocType::Message,
+            assignment: "Can we ship on Friday?",
+            focus: &[],
+            patterns: &[],
+            previous: None,
+            revision: 1,
+            text: "Yes.",
+        });
+        assert!(msg.contains("The question being answered: Can we ship on Friday?"));
+        assert!(msg.contains("on a phone"));
+        for (name, _) in DocType::Message.criteria() {
+            assert!(msg.contains(name), "the message prompt does not name {name}");
+        }
     }
 }

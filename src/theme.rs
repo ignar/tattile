@@ -128,7 +128,11 @@ impl Palette {
             IssueKind::Passive | IssueKind::FilterWord => self.info,
             IssueKind::Wordy | IssueKind::Complex | IssueKind::TellingEmotion => self.purple,
             IssueKind::Hedge => self.teal,
-            IssueKind::Repeated | IssueKind::TenseShift | IssueKind::DialoguePunctuation => self.danger,
+            IssueKind::Repeated | IssueKind::TenseShift | IssueKind::DialoguePunctuation | IssueKind::SlowStart => {
+                self.danger
+            }
+            IssueKind::LongParagraph => self.warning,
+            IssueKind::InlineList => self.info,
         }
     }
 

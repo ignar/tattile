@@ -54,10 +54,14 @@ impl TattileApp {
             });
             ui.add_space(10.0);
 
-            let craft = self.data.criteria_averages(DocType::Story, 5);
-            if !craft.is_empty() {
+            // One craft card for each document type that has craft scores (stories, messages).
+            for doc in DocType::ALL {
+                let craft = self.data.criteria_averages(doc, 5);
+                if craft.is_empty() {
+                    continue;
+                }
                 card(ui, |ui| {
-                    section(ui, "Story craft · average of the last 5 story reviews, out of 10");
+                    section(ui, &format!("{} craft · average of the last 5 reviews, out of 10", doc.label()));
                     level_bars(ui, &craft, 10.0);
                 });
                 ui.add_space(10.0);
