@@ -282,13 +282,40 @@ pub fn bar(ui: &mut Ui, fraction: f32, color: Color32) {
 }
 
 /// A number with a label under it. Used in grids inside a card.
-pub fn stat(ui: &mut Ui, label: &str, value: &str) {
+pub fn stat(ui: &mut Ui, label: &str, value: &str) -> Response {
     let p = pal(ui);
     ui.vertical(|ui| {
         ui.spacing_mut().item_spacing.y = 0.0;
         ui.label(RichText::new(value).font(theme::heading(22.0)).color(p.text));
         ui.label(RichText::new(label).size(12.0).color(p.weak));
-    });
+    })
+    .response
+}
+
+/// Horizontal bars for scores from 0 to `max`, colored by how good the score is.
+pub fn level_bars(ui: &mut Ui, items: &[(String, f32)], max: f32) {
+    let p = pal(ui);
+    let label_width = 140.0;
+    for (label, value) in items {
+        let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 24.0), Sense::hover());
+        let galley = truncated(ui, label, FontId::proportional(13.0), p.text2, label_width - 8.0);
+        ui.painter().galley(Pos2::new(rect.left(), rect.center().y - galley.size().y / 2.0), galley, p.text2);
+        let track = Rect::from_min_max(
+            Pos2::new(rect.left() + label_width, rect.center().y - 3.0),
+            Pos2::new(rect.right() - 40.0, rect.center().y + 3.0),
+        );
+        ui.painter().rect_filled(track, 3, p.border);
+        let mut filled = track;
+        filled.set_width(track.width() * (value / max).clamp(0.0, 1.0));
+        ui.painter().rect_filled(filled, 3, p.score(value / max * 100.0));
+        ui.painter().text(
+            rect.right_center(),
+            Align2::RIGHT_CENTER,
+            format!("{value:.1}"),
+            FontId::proportional(12.5),
+            p.weak,
+        );
+    }
 }
 
 pub fn empty_state(ui: &mut Ui, title: &str, body: &str) {

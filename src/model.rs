@@ -32,6 +32,24 @@ impl DocType {
         }
     }
 
+    /// Craft criteria that the AI coach scores from 0 to 10: (name, what it means).
+    pub fn criteria(self) -> &'static [(&'static str, &'static str)] {
+        match self {
+            DocType::Story => &[
+                ("Arc", "A clear setup, rising tension, a turning point, and a resolution."),
+                ("Show, don't tell", "Feelings come through actions, speech, and details, not named emotions."),
+                ("Specific detail", "Concrete, sensory details instead of general words."),
+                ("Rhythm", "Sentence lengths vary on purpose, and the pace fits the moment."),
+                ("Consistency", "One tense and one point of view in the narration."),
+                (
+                    "Dialogue",
+                    "Speech sounds natural and is punctuated correctly. Leave this out if there is no dialogue.",
+                ),
+            ],
+            _ => &[],
+        }
+    }
+
     /// What good writing looks like for this type. The AI coach gets this text.
     pub fn rubric(self) -> &'static str {
         match self {
@@ -177,6 +195,15 @@ impl Correction {
     }
 }
 
+/// A craft score from 0 to 10, for one criterion of the document type (for example "Rhythm").
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CriterionScore {
+    pub name: String,
+    pub score: f32,
+    pub comment: String,
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Review {
@@ -188,6 +215,7 @@ pub struct Review {
     pub patterns: Vec<String>,
     pub rewrite: String,
     pub next_exercise: String,
+    pub criteria: Vec<CriterionScore>,
 }
 
 /// One round of the feedback loop: the draft as it was sent, and the review that came back.
@@ -385,6 +413,41 @@ impl AppData {
         list
     }
 
+    /// The average craft score per criterion, over the last `n` reviews of this document type
+    /// that have craft scores. The order follows `DocType::criteria`.
+    pub fn criteria_averages(&self, doc: DocType, n: usize) -> Vec<(String, f32)> {
+        let mut rounds: Vec<&Iteration> = self
+            .sessions
+            .iter()
+            .filter(|s| s.doc_type == doc)
+            .flat_map(|s| s.iterations.iter())
+            .filter(|it| !it.review.criteria.is_empty())
+            .collect();
+        rounds.sort_by_key(|it| it.at);
+        let recent = &rounds[rounds.len().saturating_sub(n)..];
+
+        // (name, sum, count). Names from the model can differ in case: use the official name.
+        let mut sums: Vec<(String, f32, usize)> = Vec::new();
+        for c in recent.iter().flat_map(|it| &it.review.criteria) {
+            let name = doc
+                .criteria()
+                .iter()
+                .find(|(official, _)| official.eq_ignore_ascii_case(c.name.trim()))
+                .map_or_else(|| c.name.trim().to_owned(), |(official, _)| (*official).to_owned());
+            match sums.iter_mut().find(|(known, ..)| known.eq_ignore_ascii_case(&name)) {
+                Some(entry) => {
+                    entry.1 += c.score;
+                    entry.2 += 1;
+                }
+                None => sums.push((name, c.score, 1)),
+            }
+        }
+        let order =
+            |name: &str| doc.criteria().iter().position(|(official, _)| *official == name).unwrap_or(usize::MAX);
+        sums.sort_by_key(|(name, ..)| order(name));
+        sums.into_iter().map(|(name, sum, count)| (name, sum / count as f32)).collect()
+    }
+
     /// How often each correction category came up, most frequent first.
     pub fn category_counts(&self) -> Vec<(String, usize)> {
         let mut counts: HashMap<String, usize> = HashMap::new();
@@ -449,7 +512,8 @@ mod tests {
     #[test]
     fn demo_data_loads_and_its_corrections_match_their_drafts() {
         let data: AppData = serde_json::from_str(include_str!("../demo/data.json")).unwrap();
-        assert_eq!(data.sessions.len(), 2);
+        assert_eq!(data.sessions.len(), 3);
+        assert!(!data.criteria_averages(DocType::Story, 5).is_empty(), "the demo needs a story with craft scores");
         for it in data.sessions.iter().flat_map(|s| &s.iterations) {
             for c in &it.review.corrections {
                 assert!(it.text.contains(&c.original), "not in the draft: {}", c.original);
@@ -475,5 +539,44 @@ mod tests {
         let top = data.top_patterns(5);
         assert_eq!(top[0].1, 2);
         assert_eq!(top[0].0.to_lowercase(), "missing articles");
+    }
+
+    fn review_with(criteria: &[(&str, f32)]) -> Review {
+        let criteria = criteria
+            .iter()
+            .map(|(name, score)| CriterionScore { name: (*name).into(), score: *score, comment: String::new() })
+            .collect();
+        Review { criteria, ..Default::default() }
+    }
+
+    fn round(review: Review) -> Iteration {
+        Iteration {
+            provider: Provider::Claude,
+            model: "m".into(),
+            at: Local::now(),
+            words: 1,
+            text: String::new(),
+            review,
+        }
+    }
+
+    #[test]
+    fn criteria_averages_use_recent_reviews_of_one_type_in_rubric_order() {
+        let mut data = AppData::default();
+        let mut story = Session::new(DocType::Story, String::new());
+        story.iterations.push(round(review_with(&[("Rhythm", 6.0), ("arc", 4.0)])));
+        story.iterations.push(round(review_with(&[("Rhythm", 8.0), ("Arc", 8.0)])));
+        let mut memo = Session::new(DocType::TechMemo, String::new());
+        memo.iterations.push(round(review_with(&[("Arc", 0.0)])));
+        data.sessions.push(story);
+        data.sessions.push(memo);
+        assert_eq!(
+            data.criteria_averages(DocType::Story, 5),
+            vec![("Arc".to_owned(), 6.0), ("Rhythm".to_owned(), 7.0)]
+        );
+        assert_eq!(
+            data.criteria_averages(DocType::Story, 1),
+            vec![("Arc".to_owned(), 8.0), ("Rhythm".to_owned(), 8.0)]
+        );
     }
 }

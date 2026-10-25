@@ -8,17 +8,18 @@ use egui::{
 };
 
 use super::widgets::{
-    TOP_STRIP, bullet, button, card, chip, empty_state, pal, primary_button, score_badge, score_chart, section,
+    TOP_STRIP, bar, bullet, button, card, chip, empty_state, pal, primary_button, score_badge, score_chart, section,
     segmented, soft_card, stat, text_button, window_drag_area,
 };
 use crate::analysis::{Analysis, IssueKind};
 use crate::app::{Action, FeedbackTab, TattileApp};
-use crate::model::{Correction, CorrectionStatus, Provider, Session};
+use crate::model::{Correction, CorrectionStatus, CriterionScore, DocType, Provider, Session};
 use crate::theme::{self, Palette};
 
 impl TattileApp {
     pub fn feedback_panel(&mut self, ui: &mut Ui, index: usize) {
-        let analysis = self.highlight.get(&self.data.sessions[index].text).clone();
+        let doc = self.data.sessions[index].doc_type;
+        let analysis = self.highlight.get(&self.data.sessions[index].text, doc).clone();
 
         let top = ui.max_rect().top();
         let strip =
@@ -44,7 +45,7 @@ impl TattileApp {
         ScrollArea::vertical().id_salt("feedback_scroll").auto_shrink([false, false]).show(ui, |ui| {
             ui.spacing_mut().item_spacing.y = 8.0;
             match self.tab {
-                FeedbackTab::Checks => self.checks_tab(ui, &analysis, &mut actions),
+                FeedbackTab::Checks => self.checks_tab(ui, doc, &analysis, &mut actions),
                 FeedbackTab::Ai(provider) => self.ai_tab(ui, index, provider, &mut actions),
                 FeedbackTab::History => self.history_tab(ui, index, &mut actions),
             }
@@ -53,9 +54,10 @@ impl TattileApp {
         self.run_actions(index, actions, &ctx);
     }
 
-    fn checks_tab(&self, ui: &mut Ui, analysis: &Analysis, actions: &mut Vec<Action>) {
+    fn checks_tab(&self, ui: &mut Ui, doc: DocType, analysis: &Analysis, actions: &mut Vec<Action>) {
         let p = pal(ui);
         let st = &analysis.stats;
+        let story = doc == DocType::Story;
         card(ui, |ui| {
             ui.columns(3, |cols| {
                 stat(&mut cols[0], "Words", &st.words.to_string());
@@ -64,14 +66,23 @@ impl TattileApp {
             });
             ui.add_space(8.0);
             ui.columns(3, |cols| {
-                stat(&mut cols[0], "Reading ease", &format!("{:.0}", st.reading_ease));
-                stat(&mut cols[1], "Grade", &format!("{:.0}", st.grade));
-                stat(&mut cols[2], "Paragraphs", &st.paragraphs.to_string());
+                if story {
+                    stat(&mut cols[0], "Variety (± words)", &format!("{:.0}", st.length_variety)).on_hover_text(
+                        "How much sentence lengths vary, in words. Good prose often varies by ±5 or more.",
+                    );
+                    stat(&mut cols[1], "Dialogue", &format!("{:.0}%", st.dialogue_share * 100.0));
+                } else {
+                    stat(&mut cols[0], "Reading ease", &format!("{:.0}", st.reading_ease));
+                    stat(&mut cols[1], "Paragraphs", &st.paragraphs.to_string());
+                }
+                stat(&mut cols[2], "Grade", &format!("{:.0}", st.grade));
             });
         });
 
-        section(ui, "What to look at · click to show or hide");
-        for kind in IssueKind::ALL {
+        let title =
+            if story { "Story checks · click to show or hide" } else { "What to look at · click to show or hide" };
+        section(ui, title);
+        for &kind in IssueKind::for_doc(doc) {
             let count = analysis.count(kind);
             let on = self.visible_checks.contains(&kind);
             let color = p.issue(kind);
@@ -220,6 +231,15 @@ impl TattileApp {
             }
         });
 
+        if !review.criteria.is_empty() {
+            card(ui, |ui| {
+                ui.label(RichText::new(format!("{} craft", session.doc_type.label())).size(12.0).color(p.weak));
+                for c in &review.criteria {
+                    criterion_row(ui, &p, c);
+                }
+            });
+        }
+
         // Corrections.
         let other: HashSet<&str> = session
             .latest(provider.other())
@@ -362,6 +382,21 @@ impl TattileApp {
                     });
             });
         }
+    }
+}
+
+/// One craft score: the name, the score out of 10, a bar, and the coach's comment.
+fn criterion_row(ui: &mut Ui, p: &Palette, c: &CriterionScore) {
+    ui.add_space(4.0);
+    ui.horizontal(|ui| {
+        ui.label(RichText::new(c.name.as_str()).color(p.text));
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            ui.label(RichText::new(format!("{:.0}/10", c.score)).color(p.text2));
+        });
+    });
+    bar(ui, c.score / 10.0, p.score(c.score * 10.0));
+    if !c.comment.is_empty() {
+        ui.label(RichText::new(c.comment.as_str()).size(12.5).color(p.weak));
     }
 }
 

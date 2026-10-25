@@ -389,7 +389,14 @@ impl TattileApp {
                             let score = review.score;
                             if let Some(s) = self.data.sessions.iter_mut().find(|s| s.id == session_id) {
                                 let words = word_count(&text);
-                                s.iterations.push(Iteration { provider, model, at: Local::now(), words, text, review });
+                                s.iterations.push(Iteration {
+                                    provider,
+                                    model,
+                                    at: Local::now(),
+                                    words,
+                                    text,
+                                    review: *review,
+                                });
                             }
                             self.notify(
                                 format!("{} scored this draft {score:.0}/100.", provider.label()),

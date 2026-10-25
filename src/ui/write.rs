@@ -133,7 +133,8 @@ impl TattileApp {
         }
         let visible = self.visible_checks.clone();
         let words_before = word_count(&session.text);
-        let rubric = session.doc_type.rubric();
+        let doc = session.doc_type;
+        let rubric = doc.rubric();
         let editing_prompt = self.editing_prompt;
         let view_height = ui.available_height();
 
@@ -144,7 +145,7 @@ impl TattileApp {
             let mut layouter = |ui: &Ui, buf: &dyn TextBuffer, wrap_width: f32| {
                 let s = buf.as_str();
                 let marks = editor::ai_marks(s, &marks_src);
-                let mut job = editor::build_job(s, cache.get(s), &marks, &visible, font.clone(), &p);
+                let mut job = editor::build_job(s, cache.get(s, doc), &marks, &visible, font.clone(), &p);
                 job.wrap.max_width = wrap_width;
                 ui.fonts_mut(|f| f.layout_job(job))
             };
@@ -246,7 +247,8 @@ impl TattileApp {
     /// The bar at the bottom, like the message box in the Claude desktop app.
     fn composer(&mut self, ui: &mut Ui, index: usize) {
         let p = pal(ui);
-        let stats = self.highlight.get(&self.data.sessions[index].text).stats.clone();
+        let session = &self.data.sessions[index];
+        let stats = self.highlight.get(&session.text, session.doc_type).stats.clone();
         let id = self.data.sessions[index].id;
         let mut ask: Vec<Provider> = Vec::new();
         let mut undo = false;

@@ -33,7 +33,7 @@ pub struct ReviewJob {
 }
 
 pub enum AiEvent {
-    Review { session_id: i64, provider: Provider, model: String, text: String, result: Result<Review, String> },
+    Review { session_id: i64, provider: Provider, model: String, text: String, result: Result<Box<Review>, String> },
     Models { provider: Provider, result: Result<Vec<String>, String> },
 }
 
@@ -43,7 +43,7 @@ pub fn spawn_review(job: ReviewJob, tx: Sender<AiEvent>, ctx: egui::Context) {
             Provider::Claude => call_claude(&job),
             Provider::Grok => call_grok(&job),
         };
-        let result = raw.and_then(|text| parse_review(&text));
+        let result = raw.and_then(|text| parse_review(&text)).map(Box::new);
         let _ = tx.send(AiEvent::Review {
             session_id: job.session_id,
             provider: job.provider,
@@ -69,7 +69,7 @@ pub fn review_schema() -> Value {
     json!({
         "type": "object",
         "additionalProperties": false,
-        "required": ["score", "summary", "strengths", "improvements", "corrections", "patterns", "rewrite", "next_exercise"],
+        "required": ["score", "summary", "strengths", "improvements", "corrections", "patterns", "rewrite", "next_exercise", "criteria"],
         "properties": {
             "score": { "type": "integer", "description": "Overall quality from 0 to 100." },
             "summary": { "type": "string", "description": "Two to four sentences about the draft." },
@@ -96,7 +96,21 @@ pub fn review_schema() -> Value {
             },
             "patterns": strings,
             "rewrite": { "type": "string" },
-            "next_exercise": { "type": "string" }
+            "next_exercise": { "type": "string" },
+            "criteria": {
+                "type": "array",
+                "description": "Craft scores for the criteria that the message lists. Empty if it lists none.",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["name", "score", "comment"],
+                    "properties": {
+                        "name": { "type": "string" },
+                        "score": { "type": "integer", "description": "From 0 to 10." },
+                        "comment": { "type": "string" }
+                    }
+                }
+            }
         }
     })
 }
@@ -269,6 +283,10 @@ pub fn parse_review(raw: &str) -> Result<Review, String> {
         serde_json::from_str(&raw[start..=end]).map_err(|e| format!("Could not read the review JSON: {e}"))?;
     review.score = review.score.clamp(0.0, 100.0);
     review.corrections.retain(|c| !c.original.trim().is_empty() && c.original != c.suggestion);
+    review.criteria.retain(|c| !c.name.trim().is_empty());
+    for c in &mut review.criteria {
+        c.score = c.score.clamp(0.0, 10.0);
+    }
     Ok(review)
 }
 
@@ -326,5 +344,18 @@ mod tests {
         let msg = api_error("Claude", 401, body);
         assert!(msg.contains("API key") && msg.contains("invalid x-api-key"));
         assert!(api_error("Grok", 500, "boom").contains("server problem"));
+    }
+
+    #[test]
+    fn parses_criteria_and_clamps_them_to_ten() {
+        let review = parse_review(
+            r#"{"score": 70, "criteria": [{"name": "Arc", "score": 7, "comment": "Clear."},
+                {"name": "Rhythm", "score": 14, "comment": "Too high."}, {"name": " ", "score": 5, "comment": ""}]}"#,
+        )
+        .unwrap();
+        assert_eq!(review.criteria.len(), 2);
+        assert_eq!(review.criteria[0].score, 7.0);
+        assert_eq!(review.criteria[1].score, 10.0);
+        assert!(review_schema()["properties"]["criteria"].is_object());
     }
 }

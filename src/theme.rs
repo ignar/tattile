@@ -122,11 +122,13 @@ impl Palette {
 
     pub fn issue(&self, kind: IssueKind) -> Color32 {
         match kind {
-            IssueKind::LongSentence | IssueKind::Filler => self.warning,
-            IssueKind::Passive => self.info,
-            IssueKind::Wordy | IssueKind::Complex => self.purple,
+            IssueKind::LongSentence | IssueKind::Filler | IssueKind::MonotoneRhythm | IssueKind::DialogueTag => {
+                self.warning
+            }
+            IssueKind::Passive | IssueKind::FilterWord => self.info,
+            IssueKind::Wordy | IssueKind::Complex | IssueKind::TellingEmotion => self.purple,
             IssueKind::Hedge => self.teal,
-            IssueKind::Repeated => self.danger,
+            IssueKind::Repeated | IssueKind::TenseShift | IssueKind::DialoguePunctuation => self.danger,
         }
     }
 

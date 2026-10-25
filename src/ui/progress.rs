@@ -2,9 +2,12 @@ use chrono::{Days, Local};
 use egui::{Color32, RichText, Ui};
 
 use super::feedback::pretty_category;
-use super::widgets::{bar_chart, card, count_bars, empty_state, page, page_title, pal, score_chart, section, stat};
+use super::widgets::{
+    bar_chart, card, count_bars, empty_state, level_bars, page, page_title, pal, score_chart, section, stat,
+};
 use crate::analysis::word_count;
 use crate::app::TattileApp;
+use crate::model::DocType;
 
 impl TattileApp {
     pub fn progress_view(&mut self, ui: &mut Ui) {
@@ -50,6 +53,15 @@ impl TattileApp {
                 }
             });
             ui.add_space(10.0);
+
+            let craft = self.data.criteria_averages(DocType::Story, 5);
+            if !craft.is_empty() {
+                card(ui, |ui| {
+                    section(ui, "Story craft · average of the last 5 story reviews, out of 10");
+                    level_bars(ui, &craft, 10.0);
+                });
+                ui.add_space(10.0);
+            }
 
             ui.columns(2, |cols| {
                 card(&mut cols[0], |ui| {

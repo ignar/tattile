@@ -19,12 +19,19 @@ technical memos, promotion documents, status updates, and stories.
 - **Instant offline checks.** While you type, the editor marks long sentences, passive voice, wordy
   phrases, complex words and jargon, filler words, hedges, and repeated words. It also shows the
   reading ease and the grade level.
+- **Story mode.** Stories get their own checks: named emotions ("was very nervous"), filter words
+  ("I could hear"), tense shifts in the narration, runs of sentences with the same length, adverbs in
+  dialogue tags ("said quietly"), and a period before a dialogue tag. Stories skip the long-sentence
+  check, and style checks ignore the text inside dialogue. The stats show sentence variety and the
+  share of dialogue.
 - **AI review from Claude and Grok.** One click sends the draft for a review. You get:
   - a score from 0 to 100, and the change since the last review,
   - exact corrections (original → suggestion) with a short rule for each one,
   - what works, what to improve, and your recurring habits,
   - a polished version to compare with,
-  - one targeted exercise for your weakest area.
+  - one targeted exercise for your weakest area,
+  - for stories, craft scores from 0 to 10: arc, show-don't-tell, specific detail, rhythm,
+    consistency, and dialogue. The Progress page shows their averages over the last five stories.
 - **The feedback loop.** Apply corrections one by one or all at once (with Undo), revise, and ask
   again. The History tab shows each round and the score trend. "Ask both" gets two opinions. The app
   marks corrections that both Claude and Grok agree on.

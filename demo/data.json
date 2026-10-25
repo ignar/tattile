@@ -50,6 +50,56 @@
       "baseline": null
     },
     {
+      "id": 1761200000000,
+      "doc_type": "Story",
+      "title": "The night before the launch",
+      "prompt": "Write a short story (200–400 words) about the night before a big product launch. Show the feeling; do not name it.",
+      "text": "The night before the launch, I stayed in the office until midnight. The floor was empty and quiet. I was very nervous. I could hear the air conditioner hum above my desk.\n\nMaria came back with two coffees. \"We are not ready.\" she said quietly. She put a cup next to my keyboard. I felt tired and afraid.\n\nWe read the release notes again. We checked the dashboards again. We ran the smoke tests again. We fixed one small bug again.\n\nAt two o'clock, after six hours of failed runs and cold coffee, the build is finally green. She looks at me and smiles. Then she laughed, stood up, and turned off the lights.",
+      "created_at": "2026-10-23T20:30:00-07:00",
+      "updated_at": "2026-10-23T21:15:00-07:00",
+      "iterations": [
+        {
+          "provider": "Claude",
+          "model": "claude-opus-5-5",
+          "at": "2026-10-23T21:10:00-07:00",
+          "words": 112,
+          "text": "The night before the launch, I stayed in the office until midnight. The floor was empty and quiet. I was very nervous. I could hear the air conditioner hum above my desk.\n\nMaria came back with two coffees. \"We are not ready.\" she said quietly. She put a cup next to my keyboard. I felt tired and afraid.\n\nWe read the release notes again. We checked the dashboards again. We ran the smoke tests again. We fixed one small bug again.\n\nAt two o'clock, after six hours of failed runs and cold coffee, the build is finally green. She looks at me and smiles. Then she laughed, stood up, and turned off the lights.",
+          "review": {
+            "score": 64.0,
+            "summary": "A clear scene with a real turning point. The writing names feelings instead of showing them, and the last paragraph moves from the past tense to the present.",
+            "strengths": [
+              "Concrete details: two coffees, the air conditioner, cold coffee.",
+              "The repeated \"again\" paragraph shows the long night well."
+            ],
+            "improvements": [
+              "Show the fear and the tiredness through actions, not with \"nervous\" and \"afraid\".",
+              "Keep the past tense in the last paragraph.",
+              "Use a comma before the dialogue tag."
+            ],
+            "corrections": [
+              { "original": "ready.\" she said", "suggestion": "ready,\" she said", "category": "punctuation", "explanation": "Use a comma, not a period, before a dialogue tag.", "severity": "error", "status": "Open" },
+              { "original": "the build is finally green", "suggestion": "the build was finally green", "category": "verb_tense", "explanation": "The story is in the past tense. Keep it in the past.", "severity": "error", "status": "Open" },
+              { "original": "She looks at me and smiles.", "suggestion": "She looked at me and smiled.", "category": "verb_tense", "explanation": "Keep the past tense in the narration.", "severity": "error", "status": "Open" },
+              { "original": "I was very nervous.", "suggestion": "My hands would not stay still on the keyboard.", "category": "clarity", "explanation": "Show the feeling through an action instead of naming it.", "severity": "suggestion", "status": "Open" },
+              { "original": "I could hear the air conditioner hum", "suggestion": "The air conditioner hummed", "category": "concision", "explanation": "Remove the filter \"I could hear\" and show the sound directly.", "severity": "suggestion", "status": "Open" }
+            ],
+            "patterns": ["Naming emotions instead of showing them", "Tense shifts in narration"],
+            "rewrite": "The night before the launch, I stayed in the office until midnight. The floor was empty and quiet. My hands would not stay still on the keyboard, and the air conditioner hummed above my desk.\n\nMaria came back with two coffees. \"We are not ready,\" she said, and set a cup next to my keyboard. I rubbed my eyes and did not answer.\n\nWe read the release notes again. We checked the dashboards. We ran the smoke tests one more time, and then we fixed one small bug.\n\nAt two o'clock, after six hours of failed runs and cold coffee, the build was finally green. She looked at me and smiled. Then she laughed, stood up, and turned off the lights.",
+            "next_exercise": "Rewrite the sentence \"I felt tired and afraid.\" without emotion words. Use one action, one thing that Maria says, and one detail of the room.",
+            "criteria": [
+              { "name": "Arc", "score": 7.0, "comment": "A clear setup and a turning point at two o'clock. The ending comes a little fast." },
+              { "name": "Show, don't tell", "score": 4.0, "comment": "You name the feelings: nervous, tired, afraid. Show them through actions and details." },
+              { "name": "Specific detail", "score": 6.0, "comment": "Good details: two coffees, the air conditioner. Add one sensory detail per paragraph." },
+              { "name": "Rhythm", "score": 5.0, "comment": "The \"again\" paragraph works once, but many sentences have the same short shape." },
+              { "name": "Consistency", "score": 5.0, "comment": "The last paragraph moves from the past tense to the present." },
+              { "name": "Dialogue", "score": 6.0, "comment": "The line sounds natural, but use a comma before \"she said\"." }
+            ]
+          }
+        }
+      ],
+      "baseline": null
+    },
+    {
       "id": 1761300000000,
       "doc_type": "TechMemo",
       "title": "Move billing from polling to webhooks",

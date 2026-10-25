@@ -85,6 +85,9 @@ Score the text, not the effort.
 'Missing articles before singular nouns'.
 \"rewrite\": a polished version. Keep the author's meaning, voice, and about the same length. Do not add facts.
 \"next_exercise\": one short, concrete exercise (2-3 sentences) for the weakest area.
+\"criteria\": a score from 0 to 10 and a one-sentence comment for each craft criterion that the message lists. \
+Use the exact names. 5 means average for a careful amateur; 8 or more means skilled. If the message lists \
+no criteria, return an empty list.
 
 Write every explanation and comment in simple, clear English."
         .to_owned()
@@ -118,6 +121,23 @@ pub fn user_message(ctx: &CoachContext<'_>) -> String {
         focus,
         patterns,
     );
+    let criteria = ctx.doc_type.criteria();
+    if criteria.is_empty() {
+        msg.push_str("Return an empty \"criteria\" list.\n");
+    } else {
+        msg.push_str(
+            "\nScore these craft criteria from 0 to 10, each with one short comment. Use these exact names:\n",
+        );
+        for (name, meaning) in criteria {
+            msg.push_str(&format!("- {name}: {meaning}\n"));
+        }
+    }
+    if ctx.doc_type == DocType::Story {
+        msg.push_str(
+            "This is creative writing. Do not ask for shorter sentences when a long sentence serves the rhythm. \
+             Inside dialogue, natural speech is fine: correct only real errors there.\n",
+        );
+    }
     if let Some(prev) = ctx.previous {
         let issues: Vec<String> =
             prev.review.corrections.iter().take(6).map(|c| format!("\"{}\" ({})", c.original, c.category)).collect();
@@ -169,5 +189,30 @@ mod tests {
         assert!(msg.contains("Missing articles"));
         assert!(msg.contains("She lead the migration."));
         assert!(!msg.contains("revision"));
+    }
+
+    fn message_for(doc_type: DocType) -> String {
+        user_message(&CoachContext {
+            doc_type,
+            assignment: "",
+            focus: &[],
+            patterns: &[],
+            previous: None,
+            revision: 1,
+            text: "Text.",
+        })
+    }
+
+    #[test]
+    fn story_messages_ask_for_craft_scores_and_other_types_ask_for_none() {
+        let story = message_for(DocType::Story);
+        for (name, _) in DocType::Story.criteria() {
+            assert!(story.contains(name), "the story message does not name {name}");
+        }
+        assert!(story.contains("0 to 10"));
+        assert!(story.contains("dialogue"));
+        let memo = message_for(DocType::TechMemo);
+        assert!(memo.contains("Return an empty \"criteria\" list."));
+        assert!(system_prompt().contains("\"criteria\""));
     }
 }
