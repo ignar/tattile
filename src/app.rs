@@ -100,8 +100,8 @@ pub struct TattileApp {
 
 impl TattileApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        theme::install(&cc.egui_ctx);
         let mut data = storage::load();
+        theme::install(&cc.egui_ctx, data.settings.reading_font);
         theme::apply_choice(&cc.egui_ctx, data.settings.theme);
         if data.sessions.is_empty() {
             let doc = data.goal.doc_type;

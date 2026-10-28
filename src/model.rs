@@ -336,6 +336,8 @@ pub struct Settings {
     pub effort: String,
     pub theme: ThemeChoice,
     pub editor_font_size: f32,
+    /// The font for the draft, the titles, and the reviews.
+    pub reading_font: ReadingFont,
 }
 
 impl Default for Settings {
@@ -346,6 +348,40 @@ impl Default for Settings {
             effort: "medium".to_owned(),
             theme: ThemeChoice::System,
             editor_font_size: 18.0,
+            reading_font: ReadingFont::Charter,
+        }
+    }
+}
+
+/// Fonts for long reading. All come with macOS.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ReadingFont {
+    /// Sturdy strokes and wide letters: clear at every size.
+    #[default]
+    Charter,
+    IowanOldStyle,
+    Georgia,
+    NewYork,
+    /// The system sans-serif (SF Pro).
+    System,
+}
+
+impl ReadingFont {
+    pub const ALL: [ReadingFont; 5] = [
+        ReadingFont::Charter,
+        ReadingFont::IowanOldStyle,
+        ReadingFont::Georgia,
+        ReadingFont::NewYork,
+        ReadingFont::System,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            ReadingFont::Charter => "Charter",
+            ReadingFont::IowanOldStyle => "Iowan Old Style",
+            ReadingFont::Georgia => "Georgia",
+            ReadingFont::NewYork => "New York",
+            ReadingFont::System => "System sans-serif",
         }
     }
 }
@@ -535,6 +571,14 @@ mod tests {
         data.sessions[0].text = "one two three four five six".into();
         data.record_edit(0, 5, today);
         assert_eq!(data.words_on(today), 3);
+    }
+
+    #[test]
+    fn settings_default_to_charter_also_for_old_saved_data() {
+        assert_eq!(Settings::default().reading_font, ReadingFont::Charter);
+        let old: Settings = serde_json::from_str(r#"{"theme": "Dark", "editor_font_size": 20.0}"#).unwrap();
+        assert_eq!(old.reading_font, ReadingFont::Charter);
+        assert_eq!(old.theme, ThemeChoice::Dark);
     }
 
     #[test]

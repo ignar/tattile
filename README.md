@@ -96,6 +96,12 @@ if both exist.
 
 To use a different model, type its ID in **Settings → Model**, or pick one from the loaded list.
 
+## Reading font
+
+The draft, the titles, and the reviews use Charter by default: it has sturdy strokes and wide
+letters, so it stays clear at text size. To change it, open **Settings → Appearance → Reading font**.
+Each choice shows a sample, and the app changes at once.
+
 ## Your data
 
 - Drafts, reviews, and goals are in one JSON file:
@@ -119,7 +125,7 @@ bar: the traffic lights sit in the sidebar, and the top strip of each column mov
 | `src/ai.rs` | HTTP clients for Claude and Grok, the JSON schema, and response parsing. |
 | `src/secrets.rs` | API keys in the macOS Keychain, with environment variables as a fallback. At startup the app only checks that a key exists. It reads the key when you ask for a review. |
 | `src/storage.rs` | Atomic save and load of the JSON file. |
-| `src/theme.rs` | Light and dark palettes in the style of the Claude desktop app, macOS fonts (SF Pro, New York), and widget styles. |
+| `src/theme.rs` | Light and dark palettes in the style of the Claude desktop app, macOS fonts (SF Pro for controls; Charter, Iowan Old Style, Georgia, New York, or SF Pro for reading), and widget styles. |
 | `src/ui/` | The screens: sidebar, write (editor), feedback panel, goals, progress, settings. |
 
 How a review works:

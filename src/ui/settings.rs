@@ -2,7 +2,7 @@ use egui::{ComboBox, RichText, Slider, TextEdit, Ui};
 
 use super::widgets::{button, card, chip, page, page_title, pal, primary_button, section};
 use crate::app::{TattileApp, ToastKind};
-use crate::model::{Provider, ThemeChoice};
+use crate::model::{Provider, ReadingFont, ThemeChoice};
 use crate::secrets::{self, KeySource};
 use crate::storage;
 use crate::theme;
@@ -22,6 +22,9 @@ impl TattileApp {
         });
         if self.data.settings.theme != before.theme {
             theme::apply_choice(ui.ctx(), self.data.settings.theme);
+        }
+        if self.data.settings.reading_font != before.reading_font {
+            theme::install_fonts(ui.ctx(), self.data.settings.reading_font);
         }
         if self.data.settings != before {
             self.mark_dirty();
@@ -136,6 +139,18 @@ impl TattileApp {
                     [(ThemeChoice::System, "Match macOS"), (ThemeChoice::Light, "Light"), (ThemeChoice::Dark, "Dark")]
                 {
                     ui.radio_value(&mut self.data.settings.theme, value, label);
+                }
+            });
+            section(ui, "Reading font · for your draft, the titles, and the reviews");
+            let size = self.data.settings.editor_font_size;
+            egui::Grid::new("reading_fonts").num_columns(2).spacing([20.0, 10.0]).show(ui, |ui| {
+                for font in ReadingFont::ALL {
+                    ui.radio_value(&mut self.data.settings.reading_font, font, font.label());
+                    let sample = RichText::new("The answer comes first. Then the reason and the details.")
+                        .font(egui::FontId::new(size, theme::sample_family(font)))
+                        .color(p.text);
+                    ui.label(sample);
+                    ui.end_row();
                 }
             });
             section(ui, "Editor text size");

@@ -318,7 +318,7 @@ impl TattileApp {
                         .corner_radius(10)
                         .inner_margin(14)
                         .show(ui, |ui| {
-                            ui.label(RichText::new(review.rewrite.as_str()).font(theme::serif(15.5)).color(p.text));
+                            ui.label(RichText::new(review.rewrite.as_str()).font(theme::reading(15.5)).color(p.text));
                         });
                     ui.horizontal(|ui| {
                         if button(ui, "Copy").clicked() {
@@ -385,7 +385,7 @@ impl TattileApp {
                     .id_salt(("history", i))
                     .default_open(false)
                     .show(ui, |ui| {
-                        ui.label(RichText::new(it.text.as_str()).font(theme::serif(14.0)).color(p.text2));
+                        ui.label(RichText::new(it.text.as_str()).font(theme::reading(14.0)).color(p.text2));
                         if session.text != it.text && button(ui, "Restore this version").clicked() {
                             actions.push(Action::Restore(i));
                         }
@@ -451,12 +451,12 @@ fn correction_card(ui: &mut Ui, p: &Palette, c: &Correction, agree: bool, found:
                 ui.spacing_mut().item_spacing.x = 6.0;
                 ui.label(
                     RichText::new(c.original.as_str())
-                        .font(theme::serif(15.0))
+                        .font(theme::reading(15.0))
                         .strikethrough()
                         .color(p.danger.gamma_multiply(0.85)),
                 );
                 ui.label(RichText::new("→").color(p.faint));
-                ui.label(RichText::new(c.suggestion.as_str()).font(theme::serif(15.0)).color(p.success));
+                ui.label(RichText::new(c.suggestion.as_str()).font(theme::reading(15.0)).color(p.success));
             });
             if !c.explanation.is_empty() {
                 ui.label(RichText::new(c.explanation.as_str()).size(12.5).color(p.weak));

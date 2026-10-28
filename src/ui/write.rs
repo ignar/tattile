@@ -95,7 +95,7 @@ impl TattileApp {
     fn document(&mut self, ui: &mut Ui, index: usize) {
         let p = pal(ui);
         let editor_id = Id::unique(EDITOR_ID);
-        let font = theme::serif(self.data.settings.editor_font_size);
+        let font = theme::reading(self.data.settings.editor_font_size);
 
         // "Find" selects text in the editor. The click on the Find button also tells egui to take
         // the focus away from the editor, in the same frame. So wait for a frame without a click,

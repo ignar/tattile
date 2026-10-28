@@ -11,7 +11,7 @@ use egui::{
 };
 
 use crate::analysis::IssueKind;
-use crate::model::{Provider, ThemeChoice};
+use crate::model::{Provider, ReadingFont, ThemeChoice};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Palette {
@@ -146,21 +146,39 @@ impl Palette {
     }
 }
 
-pub fn serif_family() -> FontFamily {
-    FontFamily::Name("serif".into())
+/// The font family for the draft, the titles, and the reviews. Settings choose which font it holds.
+pub fn reading_family() -> FontFamily {
+    FontFamily::Name("reading".into())
 }
 
-pub fn serif(size: f32) -> FontId {
-    FontId::new(size, serif_family())
+pub fn reading(size: f32) -> FontId {
+    FontId::new(size, reading_family())
 }
 
-/// Headings use the same serif in its regular weight, as in the Claude desktop app.
+/// Headings use the reading font in its regular weight, as in the Claude desktop app.
 pub fn heading(size: f32) -> FontId {
-    serif(size)
+    reading(size)
 }
 
-pub fn install(ctx: &egui::Context) {
-    install_fonts(ctx);
+/// A family for each reading font, so Settings can show a sample of every font.
+pub fn sample_family(font: ReadingFont) -> FontFamily {
+    FontFamily::Name(format!("sample-{font:?}").into())
+}
+
+/// The file and the face index of each reading font. `None` means the system sans-serif.
+/// The ".ttc" files hold several faces; index 0 is the regular (roman) face in each.
+fn face(font: ReadingFont) -> Option<(&'static str, u32)> {
+    match font {
+        ReadingFont::Charter => Some(("/System/Library/Fonts/Supplemental/Charter.ttc", 0)),
+        ReadingFont::IowanOldStyle => Some(("/System/Library/Fonts/Supplemental/Iowan Old Style.ttc", 0)),
+        ReadingFont::Georgia => Some(("/System/Library/Fonts/Supplemental/Georgia.ttf", 0)),
+        ReadingFont::NewYork => Some(("/System/Library/Fonts/NewYork.ttf", 0)),
+        ReadingFont::System => None,
+    }
+}
+
+pub fn install(ctx: &egui::Context, font: ReadingFont) {
+    install_fonts(ctx, font);
     ctx.style_mut_of(Theme::Light, |s| style(s, false));
     ctx.style_mut_of(Theme::Dark, |s| style(s, true));
 }
@@ -173,40 +191,52 @@ pub fn apply_choice(ctx: &egui::Context, choice: ThemeChoice) {
     });
 }
 
-fn load_font(fonts: &mut FontDefinitions, name: &str, path: &str) -> bool {
+/// Loads face `index` of a font file. A ".ttc" file holds several faces (roman, italic, bold, ...).
+fn load_font(fonts: &mut FontDefinitions, name: &str, path: &str, index: u32) -> bool {
     match std::fs::read(path) {
         Ok(bytes) => {
-            fonts.font_data.insert(name.to_owned(), Arc::new(FontData::from_owned(bytes)));
+            let mut data = FontData::from_owned(bytes);
+            data.index = index;
+            fonts.font_data.insert(name.to_owned(), Arc::new(data));
             true
         }
         Err(_) => false,
     }
 }
 
-/// Uses the macOS system fonts when they exist, and falls back to the egui fonts.
-fn install_fonts(ctx: &egui::Context) {
+/// Loads the fonts, and puts `chosen` in the reading family. Call it again when the setting changes.
+pub fn install_fonts(ctx: &egui::Context, chosen: ReadingFont) {
     let mut fonts = FontDefinitions::default();
     let fallback = fonts.families.get(&FontFamily::Proportional).cloned().unwrap_or_default();
 
-    if load_font(&mut fonts, "sf", "/System/Library/Fonts/SFNS.ttf") {
+    if load_font(&mut fonts, "sf", "/System/Library/Fonts/SFNS.ttf", 0) {
         fonts.families.entry(FontFamily::Proportional).or_default().insert(0, "sf".to_owned());
     }
+    let sans = fonts.families.get(&FontFamily::Proportional).cloned().unwrap_or_default();
 
-    let mut serif = Vec::new();
-    if load_font(&mut fonts, "new-york", "/System/Library/Fonts/NewYork.ttf") {
-        serif.push("new-york".to_owned());
-    } else if load_font(&mut fonts, "georgia", "/System/Library/Fonts/Supplemental/Georgia.ttf") {
-        serif.push("georgia".to_owned());
+    for font in ReadingFont::ALL {
+        let name = format!("{font:?}");
+        let family = match face(font) {
+            Some((path, index)) if load_font(&mut fonts, &name, path, index) => {
+                let mut list = vec![name];
+                list.extend(fallback.iter().cloned());
+                list
+            }
+            // The system sans-serif, or a font file that this Mac does not have.
+            _ => sans.clone(),
+        };
+        if font == chosen {
+            fonts.families.insert(reading_family(), family.clone());
+        }
+        fonts.families.insert(sample_family(font), family);
     }
-    serif.extend(fallback);
-    fonts.families.insert(serif_family(), serif);
     ctx.set_fonts(fonts);
 }
 
 fn style(s: &mut egui::Style, dark: bool) {
     let p = palette(dark);
     s.text_styles = [
-        (TextStyle::Heading, FontId::new(26.0, serif_family())),
+        (TextStyle::Heading, FontId::new(26.0, reading_family())),
         (TextStyle::Body, FontId::new(14.0, FontFamily::Proportional)),
         (TextStyle::Button, FontId::new(13.5, FontFamily::Proportional)),
         (TextStyle::Small, FontId::new(12.0, FontFamily::Proportional)),
@@ -258,5 +288,37 @@ fn style(s: &mut egui::Style, dark: bool) {
         state.fg_stroke = Stroke::new(1.5, p.text);
         state.corner_radius = CornerRadius::same(8);
         state.expansion = 0.0;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// egui panics when it lays out text in a font family that is not registered. Every reading font,
+    /// and the sample family of each font for Settings, must work, also when a font file is missing.
+    #[test]
+    fn every_reading_font_can_lay_out_text() {
+        for chosen in ReadingFont::ALL {
+            let ctx = egui::Context::default();
+            install_fonts(&ctx, chosen);
+            let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                ui.label(egui::RichText::new("Answer first.").font(reading(16.0)));
+                for font in ReadingFont::ALL {
+                    ui.label(egui::RichText::new("Answer first.").font(FontId::new(16.0, sample_family(font))));
+                }
+            });
+            output.drop_without_applying_deltas();
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn reading_font_files_exist_on_macos() {
+        for font in ReadingFont::ALL {
+            if let Some((path, _)) = face(font) {
+                assert!(std::path::Path::new(path).exists(), "{path} is missing");
+            }
+        }
     }
 }
